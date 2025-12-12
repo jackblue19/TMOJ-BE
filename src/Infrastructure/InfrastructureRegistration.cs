@@ -1,6 +1,6 @@
 ﻿namespace Infrastructure
 {
-    public class InfrastructureDI
+    public class InfrastructureRegistration
     {
 
     }

@@ -1,6 +1,6 @@
 ﻿namespace Application
 {
-    public class ApplicationDI
+    public class ApplicationRegistration
     {
 
     }

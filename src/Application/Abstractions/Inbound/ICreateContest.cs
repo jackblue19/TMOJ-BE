@@ -6,10 +6,7 @@ using System.Threading.Tasks;
 
 namespace Application.Abstractions.Inbound
 {
-    internal class cqrs
+    internal interface ICreateContest
     {
-        // đó sẽ chia theo folder của từng feat
-        // nguyên tắc đặt tên là theo usecase 
-
     }
 }
