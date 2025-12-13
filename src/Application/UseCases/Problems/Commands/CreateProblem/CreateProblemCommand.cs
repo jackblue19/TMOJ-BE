@@ -1,17 +1,28 @@
-﻿using System;
+﻿using Domain.Entities;
+using Domain.ValueObjects;
+using MediatR;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.UseCases.Problems.Commands.CreateProblem
-{
-    internal class CreateProblemCommand
-    {
-        //  bắt buộc có
-        //  đc đặt tên theo usecase chơ ko phải lúc nào cũng create... đâu
-        //      có thể có lúc là SubmitSolution chẳng hạn (này theo bên feat submissions)
+namespace Application.UseCases.Problems.Commands.CreateProblem;
 
-        //  ngoài ra cái này có thể đặt ngay trong handler cũng được
-    }
+internal class CreateProblemCommandzzzzzzzzzzz      // 
+{
+    //  bắt buộc có
+    //  đc đặt tên theo usecase chơ ko phải lúc nào cũng create... đâu
+    //      có thể có lúc là SubmitSolution chẳng hạn (này theo bên feat submissions)
+
+    //  ngoài ra cái này có thể đặt ngay trong handler cũng được
 }
+
+public record CreateProblemCommand(
+    string Title ,
+    Slug Slug ,   //  có thể ko có, chẳng hạn như được gen ra từ title mới có slug (case ver 2)
+    //string Content ,
+    Difficulty Difficulty,
+    bool IsPublic
+) : IRequest<CreateProblemResult>;
+

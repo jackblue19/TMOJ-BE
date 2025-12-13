@@ -32,4 +32,22 @@ public sealed class Problem
     }
 
     public void Publish() => IsPublic = true;
+
+    //  factory method      (factory design pattern)
+    public static Problem Create(
+                                string title ,
+                                Slug slug ,
+                                Difficulty difficulty ,
+                                bool isPublic)
+    {
+        return new Problem(
+            Guid.NewGuid() ,
+            title ,
+            slug ,
+            difficulty ,
+            isPublic ,
+            DateTime.UtcNow
+        );
+    }
+
 }
