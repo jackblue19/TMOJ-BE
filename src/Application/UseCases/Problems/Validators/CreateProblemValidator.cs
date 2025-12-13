@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Abstractions.Inbound
+namespace Application.UseCases.Problems.Validators
 {
-    internal interface IStartRejudge
+    internal class CreateProblemValidator
     {
     }
 }

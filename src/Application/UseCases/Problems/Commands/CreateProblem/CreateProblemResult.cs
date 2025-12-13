@@ -16,3 +16,6 @@ public record CreateProblemResult(
     string Slug 
 );
 */
+
+//public sealed record CreateProblemResponse(Guid Id , string Slug);        
+//   có thể là gọi response thay vì result cho dễ hiểu cũng đc

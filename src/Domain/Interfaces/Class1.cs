@@ -15,5 +15,11 @@ namespace Domain.Interfaces
         //      VÌ NẾU MUỐN áp dụng CQRS thì cần chia generic repo sang read vs write
         //      điểm mạnh là mấy cái crud thì tiện ko cần impl lại
         //      ngoài ra, thì ko cần tạo repo nếu repo đó thuần crud, đó regist ở program.cs dạng assembly là nó tự động hoá hết
+
+        //  bổ sung specification của ardilas (template)
+
+        //  có thể di cư read vs write repo đi nơi khác =))
+        //  Có thể đổi tên folder này thành "Services"
+            //  ví dụ:  Domain\Services\ISlugPolicy.cs
     }
 }

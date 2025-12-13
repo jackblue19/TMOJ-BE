@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Behaviors;
-
-internal class Class1
+namespace Contracts.Contests
 {
-    //  Validation, Logging, Transaction, Caching, Performance
+    internal class ContestStartedEvent
+    {
+    }
 }

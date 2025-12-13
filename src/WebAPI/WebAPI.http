@@ -1,6 +1,9 @@
-@WebAPI_HostAddress = http://localhost:5161
+﻿@WebAPI_HostAddress = http://localhost:5161
 
 GET {{WebAPI_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+### cái này đó ae tự để trong phạm vi cái module controller của mỗi người để tự tạo api rồi test
+### hoặc ae nào thích test = cách khác ngoài .http này cũng được

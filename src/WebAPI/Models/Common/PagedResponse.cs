@@ -1,4 +1,4 @@
-﻿namespace WebAPI.Models.Abstractions
+﻿namespace WebAPI.Models.Common
 {
     public class PagedResponse
     {

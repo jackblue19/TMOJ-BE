@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Behaviors;
+namespace Contracts.Common;
 
-internal class Class1
+internal class ContractVersion
 {
-    //  Validation, Logging, Transaction, Caching, Performance
+    //  maybe ko cần
 }

@@ -13,5 +13,7 @@ namespace Application.UseCases.Problems.Mappings
         //  để khi dùng auto mappers thì mọi người tự config để mapping với entities theo req, res mà trả về
         
         //  có thể là dùng mapster
+
+        //  có thể là đặt DTOs của mỗi cái ngay tại đây
     }
 }

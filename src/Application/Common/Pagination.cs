@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Abstractions.Inbound
+namespace Application.Common
 {
-    internal interface ISubmitSolution
+    internal class Pagination
     {
     }
 }

@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Abstractions.Inbound
+namespace Worker.Orchestration
 {
-    internal interface IGrantCoins
+    internal class RatingRecalculationRunner
     {
     }
 }

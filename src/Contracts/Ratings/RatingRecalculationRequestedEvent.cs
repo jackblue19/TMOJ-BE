@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Infrastructure.ExternalServices.Cache
+namespace Contracts.Ratings
 {
-    internal class RedisCacheService
+    internal class RatingRecalculationRequestedEvent
     {
     }
 }

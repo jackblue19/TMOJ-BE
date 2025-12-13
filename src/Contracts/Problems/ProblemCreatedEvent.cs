@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Exceptions
+namespace Contracts.Problems
 {
-    internal class ProblemNotFoundException
+    internal class ProblemCreatedEvent
     {
     }
 }

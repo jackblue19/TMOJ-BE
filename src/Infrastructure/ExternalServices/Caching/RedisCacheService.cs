@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Behaviors;
-
-internal class Class1
+namespace Infrastructure.ExternalServices.Caching
 {
-    //  Validation, Logging, Transaction, Caching, Performance
+    internal class RedisCacheService
+    {
+    }
 }

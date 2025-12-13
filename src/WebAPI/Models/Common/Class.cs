@@ -1,4 +1,4 @@
-﻿namespace WebAPI.Models.Abstractions
+﻿namespace WebAPI.Models.Common
 {
     public class Class
     {
@@ -8,6 +8,7 @@
         //  lẽ ra chuẩn thì nên đặt folder tên là Common;
         //                  đều muốn ghim lên trên cùng ấy (vì nó sắp xếp theo bảng chữ cái)
         //  đó chắc là sẽ tuỳ ý ae mà đổi lại là Common hay giữ nguyên Abstraction 
-                                                    //  hay là đưa ra ngoài cùng level với folder feat...
+                            //  hay là đưa ra ngoài cùng level với folder feat...
+        //  nhớ bổ sung ProblemDetails
     }
 }

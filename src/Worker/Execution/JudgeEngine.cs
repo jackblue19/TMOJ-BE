@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Abstractions.Inbound
+namespace Worker.Execution
 {
-    internal interface ICreateContest
+    internal class JudgeEngine
     {
     }
 }

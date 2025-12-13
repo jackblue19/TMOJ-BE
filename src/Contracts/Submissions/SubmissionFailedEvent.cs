@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Validators.Problems
+namespace Contracts.Submissions
 {
-    internal class CreateProblemValidator
+    internal class SubmissionFailedEvent
     {
-        // sẽ xoá
     }
 }

@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Validators
+namespace Application.Common
 {
-    internal class SubmitSolutionValidator
+    internal class Validation
     {
-        // sẽ remove
     }
 }

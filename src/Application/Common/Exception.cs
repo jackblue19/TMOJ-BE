@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Exceptions
+namespace Application.Common;
+
+internal class Exception
 {
-    internal class Class1
-    {
-    }
+    //  ProblemNotFoundException
 }
