@@ -1,0 +1,23 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace Infrastructure.Persistence.Scaffolded.Entities;
+
+public partial class UserBadge
+{
+    public Guid UserBadgesId { get; set; }
+
+    public Guid BadgeId { get; set; }
+
+    public Guid UserId { get; set; }
+
+    public DateTime AwardedAt { get; set; }
+
+    public string? MetaJson { get; set; }
+
+    public Guid? SourceId { get; set; }
+
+    public virtual Badge Badge { get; set; } = null!;
+
+    public virtual User User { get; set; } = null!;
+}

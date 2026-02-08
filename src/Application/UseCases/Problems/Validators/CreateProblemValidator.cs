@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
+//using System.Threading.Tasks;
 
-namespace Application.UseCases.Problems.Validators
-{
-    internal class CreateProblemValidator
-    {
-    }
-}
+//namespace Application.UseCases.Problems.Validators
+//{
+//    internal class CreateProblemValidator
+//    {
+//    }
+//}

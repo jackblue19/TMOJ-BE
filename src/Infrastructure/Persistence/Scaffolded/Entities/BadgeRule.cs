@@ -1,0 +1,23 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace Infrastructure.Persistence.Scaffolded.Entities;
+
+public partial class BadgeRule
+{
+    public Guid BadgeRulesId { get; set; }
+
+    public Guid BadgeId { get; set; }
+
+    public int TargetValue { get; set; }
+
+    public Guid? ScopeId { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
+
+    public virtual Badge Badge { get; set; } = null!;
+}

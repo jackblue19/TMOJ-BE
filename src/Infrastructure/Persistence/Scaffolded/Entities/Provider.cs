@@ -1,0 +1,19 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace Infrastructure.Persistence.Scaffolded.Entities;
+
+public partial class Provider
+{
+    public Guid ProviderId { get; set; }
+
+    public string ProviderDisplayName { get; set; } = null!;
+
+    public string? ProviderIcon { get; set; }
+
+    public string? Issuer { get; set; }
+
+    public bool Enabled { get; set; }
+
+    public virtual ICollection<UserProvider> UserProviders { get; set; } = new List<UserProvider>();
+}
