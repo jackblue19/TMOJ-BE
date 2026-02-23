@@ -16,4 +16,6 @@ public partial class ClassMember
     public bool IsActive { get; set; }
 
     public virtual Class Class { get; set; } = null!;
+
+    public virtual User User { get; set; } = null!;
 }

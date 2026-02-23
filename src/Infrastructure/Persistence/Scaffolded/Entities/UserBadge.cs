@@ -15,6 +15,8 @@ public partial class UserBadge
 
     public string? MetaJson { get; set; }
 
+    public string? ContextType { get; set; }
+
     public Guid? SourceId { get; set; }
 
     public virtual Badge Badge { get; set; } = null!;

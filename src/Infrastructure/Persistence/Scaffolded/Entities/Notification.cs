@@ -13,6 +13,10 @@ public partial class Notification
 
     public string? Message { get; set; }
 
+    public string Type { get; set; } = null!;
+
+    public string? ScopeType { get; set; }
+
     public Guid? ScopeId { get; set; }
 
     public bool IsRead { get; set; }

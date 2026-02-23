@@ -9,6 +9,10 @@ public partial class BadgeRule
 
     public Guid BadgeId { get; set; }
 
+    public string RuleType { get; set; } = null!;
+
+    public string TargetEntity { get; set; } = null!;
+
     public int TargetValue { get; set; }
 
     public Guid? ScopeId { get; set; }

@@ -7,6 +7,8 @@ public partial class Role
 {
     public Guid RoleId { get; set; }
 
+    public string RoleCode { get; set; } = null!;
+
     public string? RoleDesc { get; set; }
 
     public bool IsSystem { get; set; }

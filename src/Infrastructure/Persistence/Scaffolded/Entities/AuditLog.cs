@@ -13,6 +13,8 @@ public partial class AuditLog
 
     public string ActionCode { get; set; } = null!;
 
+    public string ActionCategory { get; set; } = null!;
+
     public string? TargetTable { get; set; }
 
     public string? TargetPk { get; set; }

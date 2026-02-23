@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Infrastructure.Persistence.Scaffolded.Entities;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.Scaffolded.Context;
@@ -153,30 +153,6 @@ public partial class TmojDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder
-            .HasPostgresEnum("action_category_enum", new[] { "AUTH", "SUBMISSION", "CONTEST", "PAYMENT", "SYSTEM" })
-            .HasPostgresEnum("announcement_target_enum", new[] { "all", "user", "contest", "course", "org" })
-            .HasPostgresEnum("assignment_type_enum", new[] { "PROBLEM_SET", "CONTEST", "MIXED" })
-            .HasPostgresEnum("badge_category_enum", new[] { "contest", "course", "org", "streak", "problem" })
-            .HasPostgresEnum("badge_rule_type_enum", new[] { "rank", "streak_days", "solved_count" })
-            .HasPostgresEnum("class_member_role_enum", new[] { "STUDENT", "TEACHER", "TA" })
-            .HasPostgresEnum("contest_rank_mode_enum", new[] { "ACM", "IOI" })
-            .HasPostgresEnum("context_type_enum", new[] { "contest", "course", "org", "streak", "problem" })
-            .HasPostgresEnum("currency_enum", new[] { "VND", "COIN" })
-            .HasPostgresEnum("export_extension_enum", new[] { "csv", "xlsx", "pdf" })
-            .HasPostgresEnum("export_status_enum", new[] { "pending", "processing", "completed", "failed" })
-            .HasPostgresEnum("leaderboard_scope_enum", new[] { "GLOBAL", "SUBJECT", "CONTEST", "CLASS", "ASSIGNMENT" })
-            .HasPostgresEnum("leaderboard_status_enum", new[] { "DRAFT", "FROZEN", "PUBLISHED", "RESET" })
-            .HasPostgresEnum("notification_type_enum", new[] { "system", "contest", "problem", "badge", "submission", "announcement" })
-            .HasPostgresEnum("payment_method_enum", new[] { "BANK_TRANSFER", "VNPAY", "STRIPE" })
-            .HasPostgresEnum("payment_status_enum", new[] { "PENDING", "PAID", "FAILED", "REFUNDED" })
-            .HasPostgresEnum("provider_code_enum", new[] { "GOOGLE", "GITHUB" })
-            .HasPostgresEnum("role_code_enum", new[] { "ADMIN", "TEACHER", "STUDENT", "MANAGER" })
-            .HasPostgresEnum("storage_file_type_enum", new[] { "source_code", "editorial", "testcase", "output", "log", "report" })
-            .HasPostgresEnum("target_entity_enum", new[] { "contest", "course", "org", "streak", "problem" })
-            .HasPostgresEnum("txn_direction_enum", new[] { "IN", "OUT" })
-            .HasPostgresEnum("txn_status_enum", new[] { "PENDING", "COMPLETED", "REVERSED", "FAILED" })
-            .HasPostgresEnum("txn_type_enum", new[] { "DEPOSIT", "WITHDRAW", "TRANSFER", "REFUND", "REWARD" })
-            .HasPostgresExtension("pg_trgm")
             .HasPostgresExtension("pgcrypto")
             .HasPostgresExtension("uuid-ossp");
 
@@ -198,6 +174,10 @@ public partial class TmojDbContext : DbContext
                 .HasDefaultValue(false)
                 .HasColumnName("pinned");
             entity.Property(e => e.ScopeId).HasColumnName("scope_id");
+            entity.Property(e => e.ScopeType).HasColumnName("scope_type");
+            entity.Property(e => e.Target)
+                .HasDefaultValueSql("'all'::text")
+                .HasColumnName("target");
             entity.Property(e => e.Title).HasColumnName("title");
 
             entity.HasOne(d => d.Author).WithMany(p => p.Announcements)
@@ -235,9 +215,10 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.AuditLogId)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("audit_log_id");
+            entity.Property(e => e.ActionCategory).HasColumnName("action_category");
             entity.Property(e => e.ActionCode).HasColumnName("action_code");
             entity.Property(e => e.ActorType)
-                .HasDefaultValueSql("'USER'::text")
+                .HasDefaultValueSql("'user'::text")
                 .HasColumnName("actor_type");
             entity.Property(e => e.ActorUserId).HasColumnName("actor_user_id");
             entity.Property(e => e.CreatedAt)
@@ -269,6 +250,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.BadgeId)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("badge_id");
+            entity.Property(e => e.BadgeCategory).HasColumnName("badge_category");
             entity.Property(e => e.BadgeCode).HasColumnName("badge_code");
             entity.Property(e => e.BadgeLevel)
                 .HasDefaultValue(1)
@@ -313,7 +295,9 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.IsActive)
                 .HasDefaultValue(true)
                 .HasColumnName("is_active");
+            entity.Property(e => e.RuleType).HasColumnName("rule_type");
             entity.Property(e => e.ScopeId).HasColumnName("scope_id");
+            entity.Property(e => e.TargetEntity).HasColumnName("target_entity");
             entity.Property(e => e.TargetValue).HasColumnName("target_value");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
 
@@ -429,6 +413,11 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Class).WithMany(p => p.ClassMembers)
                 .HasForeignKey(d => d.ClassId)
                 .HasConstraintName("class_member_class_id_fkey");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ClassMembers)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("class_member_user_id_fkey");
         });
 
         modelBuilder.Entity<ClassSlot>(entity =>
@@ -455,7 +444,7 @@ public partial class TmojDbContext : DbContext
                 .HasDefaultValue(false)
                 .HasColumnName("is_published");
             entity.Property(e => e.Mode)
-                .HasDefaultValueSql("'PROBLEMSET'::text")
+                .HasDefaultValueSql("'problemset'::text")
                 .HasColumnName("mode");
             entity.Property(e => e.OpenAt).HasColumnName("open_at");
             entity.Property(e => e.Rules).HasColumnName("rules");
@@ -558,7 +547,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.ReporterId).HasColumnName("reporter_id");
             entity.Property(e => e.Status)
                 .HasMaxLength(20)
-                .HasDefaultValueSql("'PENDING'::character varying")
+                .HasDefaultValueSql("'pending'::character varying")
                 .HasColumnName("status");
             entity.Property(e => e.TargetId).HasColumnName("target_id");
             entity.Property(e => e.TargetType)
@@ -568,7 +557,7 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Reporter).WithMany(p => p.ContentReports)
                 .HasForeignKey(d => d.ReporterId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_report_user");
+                .HasConstraintName("content_reports_reporter_id_fkey");
         });
 
         modelBuilder.Entity<Contest>(entity =>
@@ -890,16 +879,16 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Discussion).WithMany(p => p.DiscussionComments)
                 .HasForeignKey(d => d.DiscussionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_comment_discussion");
+                .HasConstraintName("discussion_comments_discussion_id_fkey");
 
             entity.HasOne(d => d.Parent).WithMany(p => p.InverseParent)
                 .HasForeignKey(d => d.ParentId)
-                .HasConstraintName("fk_comment_parent");
+                .HasConstraintName("discussion_comments_parent_id_fkey");
 
             entity.HasOne(d => d.User).WithMany(p => p.DiscussionComments)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_comment_user");
+                .HasConstraintName("discussion_comments_user_id_fkey");
         });
 
         modelBuilder.Entity<Editorial>(entity =>
@@ -1085,12 +1074,12 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Admin).WithMany(p => p.ModerationActions)
                 .HasForeignKey(d => d.AdminId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_action_admin");
+                .HasConstraintName("moderation_actions_admin_id_fkey");
 
             entity.HasOne(d => d.Report).WithMany(p => p.ModerationActions)
                 .HasForeignKey(d => d.ReportId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_action_report");
+                .HasConstraintName("moderation_actions_report_id_fkey");
         });
 
         modelBuilder.Entity<Notification>(entity =>
@@ -1111,7 +1100,9 @@ public partial class TmojDbContext : DbContext
                 .HasColumnName("is_read");
             entity.Property(e => e.Message).HasColumnName("message");
             entity.Property(e => e.ScopeId).HasColumnName("scope_id");
+            entity.Property(e => e.ScopeType).HasColumnName("scope_type");
             entity.Property(e => e.Title).HasColumnName("title");
+            entity.Property(e => e.Type).HasColumnName("type");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.CreatedByNavigation).WithMany(p => p.NotificationCreatedByNavigations)
@@ -1140,11 +1131,18 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
+            entity.Property(e => e.Currency)
+                .HasDefaultValueSql("'vnd'::text")
+                .HasColumnName("currency");
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.PaidAt).HasColumnName("paid_at");
+            entity.Property(e => e.PaymentMethod).HasColumnName("payment_method");
             entity.Property(e => e.PaymentTxn).HasColumnName("payment_txn");
             entity.Property(e => e.ProviderName).HasColumnName("provider_name");
             entity.Property(e => e.ProviderTxId).HasColumnName("provider_tx_id");
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'pending'::text")
+                .HasColumnName("status");
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
             entity.HasOne(d => d.User).WithMany(p => p.Payments)
@@ -1202,7 +1200,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.ScoringCode).HasColumnName("scoring_code");
             entity.Property(e => e.Slug).HasColumnName("slug");
             entity.Property(e => e.StatusCode)
-                .HasDefaultValueSql("'DRAFT'::text")
+                .HasDefaultValueSql("'draft'::text")
                 .HasColumnName("status_code");
             entity.Property(e => e.TimeLimitMs).HasColumnName("time_limit_ms");
             entity.Property(e => e.Title).HasColumnName("title");
@@ -1275,12 +1273,12 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Problem).WithMany(p => p.ProblemDiscussions)
                 .HasForeignKey(d => d.ProblemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_discussion_problem");
+                .HasConstraintName("problem_discussions_problem_id_fkey");
 
             entity.HasOne(d => d.User).WithMany(p => p.ProblemDiscussions)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_discussion_user");
+                .HasConstraintName("problem_discussions_user_id_fkey");
         });
 
         modelBuilder.Entity<ProblemEditorial>(entity =>
@@ -1309,12 +1307,12 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Author).WithMany(p => p.ProblemEditorials)
                 .HasForeignKey(d => d.AuthorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_editorial_author");
+                .HasConstraintName("problem_editorials_author_id_fkey");
 
             entity.HasOne(d => d.Problem).WithOne(p => p.ProblemEditorial)
                 .HasForeignKey<ProblemEditorial>(d => d.ProblemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_editorial_problem");
+                .HasConstraintName("problem_editorials_problem_id_fkey");
         });
 
         modelBuilder.Entity<ProblemStat>(entity =>
@@ -1349,6 +1347,8 @@ public partial class TmojDbContext : DbContext
 
             entity.ToTable("provider");
 
+            entity.HasIndex(e => e.ProviderCode, "provider_provider_code_key").IsUnique();
+
             entity.Property(e => e.ProviderId)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("provider_id");
@@ -1356,6 +1356,7 @@ public partial class TmojDbContext : DbContext
                 .HasDefaultValue(true)
                 .HasColumnName("enabled");
             entity.Property(e => e.Issuer).HasColumnName("issuer");
+            entity.Property(e => e.ProviderCode).HasColumnName("provider_code");
             entity.Property(e => e.ProviderDisplayName).HasColumnName("provider_display_name");
             entity.Property(e => e.ProviderIcon).HasColumnName("provider_icon");
         });
@@ -1381,7 +1382,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.RatingChange).HasColumnName("rating_change");
             entity.Property(e => e.ScopeId).HasColumnName("scope_id");
             entity.Property(e => e.ScopeType)
-                .HasDefaultValueSql("'GLOBAL'::text")
+                .HasDefaultValueSql("'global'::text")
                 .HasColumnName("scope_type");
             entity.Property(e => e.Score)
                 .HasPrecision(18, 2)
@@ -1435,12 +1436,16 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.ExportId)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("export_id");
+            entity.Property(e => e.ExtensionType).HasColumnName("extension_type");
             entity.Property(e => e.FilePath).HasColumnName("file_path");
             entity.Property(e => e.GeneratedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("generated_at");
             entity.Property(e => e.GeneratedBy).HasColumnName("generated_by");
             entity.Property(e => e.ReportType).HasColumnName("report_type");
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'pending'::text")
+                .HasColumnName("status");
 
             entity.HasOne(d => d.GeneratedByNavigation).WithMany(p => p.ReportsExportHistories)
                 .HasForeignKey(d => d.GeneratedBy)
@@ -1510,6 +1515,8 @@ public partial class TmojDbContext : DbContext
 
             entity.ToTable("role");
 
+            entity.HasIndex(e => e.RoleCode, "role_role_code_key").IsUnique();
+
             entity.Property(e => e.RoleId)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("role_id");
@@ -1519,6 +1526,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.IsSystem)
                 .HasDefaultValue(false)
                 .HasColumnName("is_system");
+            entity.Property(e => e.RoleCode).HasColumnName("role_code");
             entity.Property(e => e.RoleDesc).HasColumnName("role_desc");
         });
 
@@ -1694,6 +1702,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.ExpiresAt).HasColumnName("expires_at");
             entity.Property(e => e.FilePath).HasColumnName("file_path");
             entity.Property(e => e.FileSize).HasColumnName("file_size");
+            entity.Property(e => e.FileType).HasColumnName("file_type");
             entity.Property(e => e.HashChecksum).HasColumnName("hash_checksum");
             entity.Property(e => e.IsPrivate)
                 .HasDefaultValue(true)
@@ -1728,7 +1737,7 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Creator).WithMany(p => p.StudyPlans)
                 .HasForeignKey(d => d.CreatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_plan_creator");
+                .HasConstraintName("study_plans_creator_id_fkey");
         });
 
         modelBuilder.Entity<StudyPlanItem>(entity =>
@@ -1747,12 +1756,12 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Problem).WithMany(p => p.StudyPlanItems)
                 .HasForeignKey(d => d.ProblemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_item_problem");
+                .HasConstraintName("study_plan_items_problem_id_fkey");
 
             entity.HasOne(d => d.StudyPlan).WithMany(p => p.StudyPlanItems)
                 .HasForeignKey(d => d.StudyPlanId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_item_plan");
+                .HasConstraintName("study_plan_items_study_plan_id_fkey");
         });
 
         modelBuilder.Entity<Subject>(entity =>
@@ -1808,7 +1817,7 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.ProblemId).HasColumnName("problem_id");
             entity.Property(e => e.RuntimeId).HasColumnName("runtime_id");
             entity.Property(e => e.StatusCode)
-                .HasDefaultValueSql("'QUEUED'::text")
+                .HasDefaultValueSql("'queued'::text")
                 .HasColumnName("status_code");
             entity.Property(e => e.StorageBlobId).HasColumnName("storage_blob_id");
             entity.Property(e => e.SubmissionType)
@@ -2121,6 +2130,7 @@ public partial class TmojDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("awarded_at");
             entity.Property(e => e.BadgeId).HasColumnName("badge_id");
+            entity.Property(e => e.ContextType).HasColumnName("context_type");
             entity.Property(e => e.MetaJson)
                 .HasColumnType("jsonb")
                 .HasColumnName("meta_json");
@@ -2274,14 +2284,14 @@ public partial class TmojDbContext : DbContext
                 .HasDefaultValue(1000)
                 .HasColumnName("max_rating");
             entity.Property(e => e.RankTitle)
-                .HasDefaultValueSql("'Newbie'::text")
+                .HasDefaultValueSql("'newbie'::text")
                 .HasColumnName("rank_title");
             entity.Property(e => e.Rating)
                 .HasDefaultValue(1000)
                 .HasColumnName("rating");
             entity.Property(e => e.ScopeId).HasColumnName("scope_id");
             entity.Property(e => e.ScopeType)
-                .HasDefaultValueSql("'GLOBAL'::text")
+                .HasDefaultValueSql("'global'::text")
                 .HasColumnName("scope_type");
             entity.Property(e => e.TimesPlayed)
                 .HasDefaultValue(0)
@@ -2371,7 +2381,7 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.User).WithOne(p => p.UserStreak)
                 .HasForeignKey<UserStreak>(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_streak_user");
+                .HasConstraintName("user_streaks_user_id_fkey");
         });
 
         modelBuilder.Entity<UserStudyProgress>(entity =>
@@ -2396,17 +2406,17 @@ public partial class TmojDbContext : DbContext
             entity.HasOne(d => d.Problem).WithMany(p => p.UserStudyProgresses)
                 .HasForeignKey(d => d.ProblemId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_progress_problem");
+                .HasConstraintName("user_study_progress_problem_id_fkey");
 
             entity.HasOne(d => d.StudyPlan).WithMany(p => p.UserStudyProgresses)
                 .HasForeignKey(d => d.StudyPlanId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_progress_plan");
+                .HasConstraintName("user_study_progress_study_plan_id_fkey");
 
             entity.HasOne(d => d.User).WithMany(p => p.UserStudyProgresses)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_progress_user");
+                .HasConstraintName("user_study_progress_user_id_fkey");
         });
 
         modelBuilder.Entity<Wallet>(entity =>
@@ -2414,6 +2424,8 @@ public partial class TmojDbContext : DbContext
             entity.HasKey(e => e.WalletId).HasName("wallet_pkey");
 
             entity.ToTable("wallet");
+
+            entity.HasIndex(e => new { e.UserId, e.Currency }, "unique_user_currency_wallet").IsUnique();
 
             entity.Property(e => e.WalletId)
                 .HasDefaultValueSql("gen_random_uuid()")
@@ -2424,6 +2436,9 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
+            entity.Property(e => e.Currency)
+                .HasDefaultValueSql("'coin'::text")
+                .HasColumnName("currency");
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
@@ -2450,11 +2465,16 @@ public partial class TmojDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
+            entity.Property(e => e.Direction).HasColumnName("direction");
             entity.Property(e => e.Metadata)
                 .HasColumnType("jsonb")
                 .HasColumnName("metadata");
             entity.Property(e => e.SourceId).HasColumnName("source_id");
             entity.Property(e => e.SourceType).HasColumnName("source_type");
+            entity.Property(e => e.Status)
+                .HasDefaultValueSql("'completed'::text")
+                .HasColumnName("status");
+            entity.Property(e => e.Type).HasColumnName("type");
             entity.Property(e => e.WalletId).HasColumnName("wallet_id");
 
             entity.HasOne(d => d.Wallet).WithMany(p => p.WalletTransactions)

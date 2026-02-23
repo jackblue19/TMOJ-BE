@@ -9,11 +9,17 @@ public partial class WalletTransaction
 
     public Guid WalletId { get; set; }
 
+    public string Type { get; set; } = null!;
+
+    public string Direction { get; set; } = null!;
+
     public decimal Amount { get; set; }
 
     public string SourceType { get; set; } = null!;
 
     public Guid? SourceId { get; set; }
+
+    public string Status { get; set; } = null!;
 
     public string? Metadata { get; set; }
 

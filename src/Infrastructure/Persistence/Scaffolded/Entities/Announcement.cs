@@ -13,7 +13,11 @@ public partial class Announcement
 
     public string Content { get; set; } = null!;
 
+    public string Target { get; set; } = null!;
+
     public bool Pinned { get; set; }
+
+    public string? ScopeType { get; set; }
 
     public Guid? ScopeId { get; set; }
 

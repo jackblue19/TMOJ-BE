@@ -45,6 +45,8 @@ public partial class User
 
     public virtual ICollection<Badge> BadgeUpdatedByNavigations { get; set; } = new List<Badge>();
 
+    public virtual ICollection<ClassMember> ClassMembers { get; set; } = new List<ClassMember>();
+
     public virtual ICollection<ClassSlot> ClassSlotCreatedByNavigations { get; set; } = new List<ClassSlot>();
 
     public virtual ICollection<ClassSlot> ClassSlotUpdatedByNavigations { get; set; } = new List<ClassSlot>();

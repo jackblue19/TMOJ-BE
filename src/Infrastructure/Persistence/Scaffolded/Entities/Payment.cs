@@ -17,9 +17,15 @@ public partial class Payment
 
     public string? PaymentTxn { get; set; }
 
+    public string PaymentMethod { get; set; } = null!;
+
     public decimal AmountMoney { get; set; }
 
+    public string Currency { get; set; } = null!;
+
     public string? Note { get; set; }
+
+    public string Status { get; set; } = null!;
 
     public DateTime CreatedAt { get; set; }
 

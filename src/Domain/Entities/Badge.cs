@@ -15,6 +15,8 @@ public partial class Badge
 
     public string BadgeCode { get; set; } = null!;
 
+    public string BadgeCategory { get; set; } = null!;
+
     public int BadgeLevel { get; set; }
 
     public bool IsRepeatable { get; set; }
