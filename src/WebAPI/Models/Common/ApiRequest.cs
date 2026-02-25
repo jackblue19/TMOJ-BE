@@ -1,6 +1,5 @@
-﻿namespace WebAPI.Models.Common
+﻿namespace WebAPI.Models.Common;
+
+public class ApiRequest<T>
 {
-    public class ApiRequest<T>
-    {
-    }
 }

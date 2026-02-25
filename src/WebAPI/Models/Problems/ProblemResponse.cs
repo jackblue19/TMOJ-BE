@@ -1,6 +1,6 @@
-﻿namespace WebAPI.Models.Problems
-{
-    public class ProblemResponse
-    {
-    }
-}
+﻿//namespace WebAPI.Models.Problems
+//{
+//    public class ProblemResponse
+//    {
+//    }
+//}
