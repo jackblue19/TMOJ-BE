@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Application.Common;
+namespace Domain.Abstractions;
 
-internal class Exception
+public interface IUnitOfWork
 {
-    //  ProblemNotFoundException
+    Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
