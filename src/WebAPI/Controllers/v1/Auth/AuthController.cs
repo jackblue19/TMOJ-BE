@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Security.Principal;
 using Google.Apis.Auth;
-//using Infrastructure.Persistence.Scaffolded.Entities;
 using Microsoft.EntityFrameworkCore;
 using WebAPI.Models.Auth;
+using Domain.Entities;
 
 namespace WebAPI.Controllers.v1.Auth;
 
