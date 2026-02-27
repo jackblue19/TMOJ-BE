@@ -10,3 +10,5 @@ public record CreateAccountRequest(
     int AccountRole);
 
 public record GoogleLoginRequest(string TokenId);
+
+public record LoginRequest(string Identifier, string Password);

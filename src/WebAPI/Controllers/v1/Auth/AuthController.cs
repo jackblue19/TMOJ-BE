@@ -22,7 +22,7 @@ public class AuthController : ControllerBase
 {
     private readonly ITokenService _tokenService;
     private readonly IRefreshTokenService _refreshTokenService;
-    //private readonly IPasswordHasher _passwordHasher;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly JwtOptions _jwt;
     private readonly GoogleOptions _google;
     private readonly TmojDbContext _db;
@@ -30,14 +30,14 @@ public class AuthController : ControllerBase
     public AuthController(
         ITokenService tokenService ,
         IRefreshTokenService refreshTokenService ,
-        //IPasswordHasher passwordHasher ,
+        IPasswordHasher passwordHasher ,
         IOptions<JwtOptions> jwt ,
         IOptions<GoogleOptions> google ,
         TmojDbContext db)
     {
         _tokenService = tokenService;
         _refreshTokenService = refreshTokenService;
-        //_passwordHasher = passwordHasher;
+        _passwordHasher = passwordHasher;
         _jwt = jwt.Value;
         _google = google.Value;
         _db = db;
@@ -55,6 +55,68 @@ public class AuthController : ControllerBase
     CancellationToken ct)
     {
         return Ok("sample thôi đó mn tự test logic");
+    }
+
+    [AllowAnonymous]
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequest req , CancellationToken ct)
+    {
+        var user = await _db.Users
+            .Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(u => u.Email == req.Identifier || u.Username == req.Identifier , ct);
+
+        if ( user == null || string.IsNullOrEmpty(user.Password) || !_passwordHasher.Verify(req.Password , user.Password) )
+        {
+            return Unauthorized("Invalid username/email or password");
+        }
+
+        // Create Session
+        var session = new UserSession
+        {
+            UserId = user.UserId ,
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ,
+            UserAgent = Request.Headers["User-Agent"]
+        };
+
+        var refreshTokenStr = _refreshTokenService.GenerateToken();
+        var refreshTokenHash = _refreshTokenService.HashToken(refreshTokenStr);
+
+        var refreshToken = new RefreshToken
+        {
+            SessionId = session.SessionId ,
+            TokenHash = refreshTokenHash ,
+            ExpireAt = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays)
+        };
+
+        _db.UserSessions.Add(session);
+        _db.RefreshTokens.Add(refreshToken);
+        await _db.SaveChangesAsync(ct);
+
+        var roles = user.UserRoleUsers.Select(ur => ur.Role.RoleCode).ToList();
+        if ( !roles.Any() ) roles.Add("user"); // Default role
+
+        var accessToken = _tokenService.CreateAccessToken(
+            user.UserId.ToString() ,
+            user.DisplayName ?? user.Username ,
+            roles);
+
+        var userDto = new UserDto(
+            UserId: user.UserId ,
+            Email: user.Email ,
+            FirstName: user.FirstName ,
+            LastName: user.LastName ,
+            DisplayName: user.DisplayName ,
+            Username: user.Username ,
+            AvatarUrl: user.AvatarUrl ,
+            Roles: roles
+        );
+
+        return Ok(new AuthResponse(
+            AccessToken: accessToken ,
+            RefreshToken: refreshTokenStr ,
+            ExpiresIn: _jwt.AccessTokenMinutes * 60 ,
+            User: userDto
+        ));
     }
 
     [AllowAnonymous]
