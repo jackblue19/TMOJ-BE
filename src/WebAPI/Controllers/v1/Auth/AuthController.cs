@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Security.Principal;
 using Google.Apis.Auth;
+//using Infrastructure.Persistence.Scaffolded.Entities;
 using Microsoft.EntityFrameworkCore;
 using WebAPI.Models.Auth;
-using Domain.Entities;
 
 namespace WebAPI.Controllers.v1.Auth;
 
@@ -77,54 +77,53 @@ public class AuthController : ControllerBase
             {
                 var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
 
-                user = new User
-                {
-                    UserId = Guid.NewGuid() ,
-                    Email = payload.Email ,
-                    FirstName = payload.GivenName ?? "" ,
-                    LastName = payload.FamilyName ?? "" ,
-                    DisplayName = payload.Name ,
-                    AvatarUrl = payload.Picture ,
-                    Username = payload.Email.Split('@')[0] + Guid.NewGuid().ToString("N").Substring(0 , 4) ,
-                    EmailVerified = payload.EmailVerified ,
-                    LanguagePreference = "vi" , // Default
-                    Status = true ,
-                    CreatedAt = DateTime.UtcNow ,
-                    UpdatedAt = DateTime.UtcNow ,
-                    RoleId = studentRole?.RoleId
-                };
+                var user = new User
+                    {
+                        Email = payload.Email,
+                        FirstName = payload.GivenName ?? "",
+                        LastName = payload.FamilyName ?? "",
+                        DisplayName = payload.Name,
+                        AvatarUrl = payload.Picture,
+                        Username = payload.Email.Split('@')[0] + Guid.NewGuid().ToString("N").Substring(0, 4),
+                        EmailVerified = payload.EmailVerified,
+                        LanguagePreference = "vi",
+                        Status = true,
+                        UserProviders = new List<UserProvider>(),
+                        UserRoleUsers = new List<UserRole>()
+                    };
 
-                var provider = await _db.Providers.FirstOrDefaultAsync(p => p.ProviderCode == "google" , ct);
-                if ( provider == null )
+                var provider = await _db.Providers
+                    .FirstOrDefaultAsync(p => p.ProviderCode == "google", ct);
+
+                if (provider == null)
                 {
                     provider = new Provider
                     {
-                        ProviderId = Guid.NewGuid() ,
-                        ProviderCode = "google" ,
-                        ProviderDisplayName = "Google" ,
+                        ProviderCode = "google",
+                        ProviderDisplayName = "Google",
                         Enabled = true
                     };
+
                     _db.Providers.Add(provider);
                 }
 
                 user.UserProviders.Add(new UserProvider
                 {
-                    UserProviderId = Guid.NewGuid() ,
-                    ProviderId = provider.ProviderId ,
-                    ProviderSubject = payload.Subject ,
-                    ProviderEmail = payload.Email ,
-                    CreatedAt = DateTime.UtcNow ,
-                    UpdatedAt = DateTime.UtcNow
+                    ProviderId = provider.ProviderId,
+                    ProviderSubject = payload.Subject,
+                    ProviderEmail = payload.Email,
                 });
 
                 if ( studentRole != null )
                 {
-                    user.UserRoleUsers.Add(new UserRole
+                    if (studentRole != null)
                     {
-                        UserId = user.UserId ,
-                        RoleId = studentRole.RoleId ,
-                        AssignedAt = DateTime.UtcNow
-                    });
+                        user.UserRoleUsers.Add(new UserRole
+                        {
+                            UserId = user.UserId,
+                            RoleId = studentRole.RoleId,
+                        });
+                    }
                 }
 
                 _db.Users.Add(user);
@@ -134,10 +133,7 @@ public class AuthController : ControllerBase
             // Create Session
             var session = new UserSession
             {
-                SessionId = Guid.NewGuid() ,
                 UserId = user.UserId ,
-                CreatedAt = DateTime.UtcNow ,
-                LastSeenAt = DateTime.UtcNow ,
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ,
                 UserAgent = Request.Headers["User-Agent"]
             };
@@ -147,10 +143,8 @@ public class AuthController : ControllerBase
 
             var refreshToken = new RefreshToken
             {
-                TokenId = Guid.NewGuid() ,
                 SessionId = session.SessionId ,
                 TokenHash = refreshTokenHash ,
-                CreatedAt = DateTime.UtcNow ,
                 ExpireAt = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays)
             };
 
@@ -188,7 +182,7 @@ public class AuthController : ControllerBase
         {
             return BadRequest("Invalid Google Token");
         }
-        catch ( Exception )
+        catch ( Exception ex )
         {
             return StatusCode(500 , "Internal Server Error during Google Login");
         }
