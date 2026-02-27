@@ -77,7 +77,7 @@ public class AuthController : ControllerBase
             {
                 var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
 
-                var user = new User
+                user = new User
                     {
                         Email = payload.Email,
                         FirstName = payload.GivenName ?? "",
@@ -116,14 +116,11 @@ public class AuthController : ControllerBase
 
                 if ( studentRole != null )
                 {
-                    if (studentRole != null)
+                    user.UserRoleUsers.Add(new UserRole
                     {
-                        user.UserRoleUsers.Add(new UserRole
-                        {
-                            UserId = user.UserId,
-                            RoleId = studentRole.RoleId,
-                        });
-                    }
+                        UserId = user.UserId,
+                        RoleId = studentRole.RoleId,
+                    });
                 }
 
                 _db.Users.Add(user);
@@ -171,7 +168,7 @@ public class AuthController : ControllerBase
                 Roles: roles
             );
 
-            return Ok(new AuthRespone(
+            return Ok(new AuthResponse(
                 AccessToken: accessToken ,
                 RefreshToken: refreshTokenStr ,
                 ExpiresIn: _jwt.AccessTokenMinutes * 60 ,

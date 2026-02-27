@@ -10,7 +10,7 @@ public record UserDto(
     string? AvatarUrl,
     List<string> Roles);
 
-public record AuthRespone(
+public record AuthResponse(
     string AccessToken,
     string RefreshToken,
     int ExpiresIn,
