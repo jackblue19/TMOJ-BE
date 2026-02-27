@@ -35,6 +35,7 @@ builder.Services.AddControllers().AddOData(opt =>
 
 //  jwt sample settings (rcm nen dung)
 builder.Services.AddTraditionalJwtAuth(builder.Configuration);
+builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Google"));
 
 //  wrap + problem details + rate limit
 builder.Services.AddControllers(options =>
