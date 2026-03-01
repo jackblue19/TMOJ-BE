@@ -13,4 +13,4 @@ public record ConfirmEmailRequest(string Email, string Token);
 
 public record GoogleLoginRequest(string TokenId);
 
-public record LoginRequest(string Identifier, string Password);
+public record LoginRequest(string Email, string Password);
