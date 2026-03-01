@@ -68,7 +68,7 @@ builder.Services.AddHttpLogging(o =>
                     | Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.ResponseStatusCode;
 });
 
-//builder.Services.AddCorsPolicy(builder.Configuration);
+builder.Services.AddCorsPolicy(builder.Configuration);
 //builder.Services.AddRateLimiting();
 
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>) , typeof(ValidationBehavior<,>));
@@ -88,7 +88,7 @@ app.UseHttpsRedirection();
 app.UseExceptionHandler();
 app.UseRouting();
 
-//app.UseCors(CorsExtensions.DefaultPolicyName);
+app.UseCors(CorsExtensions.DefaultPolicyName);
 //app.UseRateLimiter();
 
 app.UseAuthentication();
