@@ -1,0 +1,230 @@
+﻿using Asp.Versioning;
+using Domain.Entities;
+using Infrastructure.Persistence.Scaffolded.Context;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace WebAPI.Controllers.v1.ProblemManagement;
+
+[ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
+public class ProblemsController : ControllerBase
+{
+    private readonly TmojDbContext _db;
+
+    public ProblemsController(TmojDbContext db)
+    {
+        _db = db;
+    }
+
+    // GET api/problems
+    [HttpGet]
+    public async Task<ActionResult<List<ProblemResponseDto>>> GetAll(
+        [FromQuery] string? difficulty ,
+        [FromQuery] string? status ,
+        CancellationToken ct)
+    {
+        var query = _db.Problems.AsNoTracking().Where(x => x.IsActive);
+
+        if ( !string.IsNullOrWhiteSpace(difficulty) )
+            query = query.Where(x => x.Difficulty == difficulty);
+
+        if ( !string.IsNullOrWhiteSpace(status) )
+            query = query.Where(x => x.StatusCode == status);
+
+        var result = await query
+            .OrderBy(x => x.DisplayIndex)
+            .Select(x => new ProblemResponseDto
+            {
+                Id = x.Id ,
+                Slug = x.Slug ,
+                Title = x.Title ,
+                Difficulty = x.Difficulty ,
+                StatusCode = x.StatusCode ,
+                IsActive = x.IsActive ,
+                AcceptancePercent = x.AcceptancePercent ,
+                TimeLimitMs = x.TimeLimitMs ,
+                MemoryLimitKb = x.MemoryLimitKb ,
+                CreatedAt = x.CreatedAt ,
+                PublishedAt = x.PublishedAt
+            })
+            .ToListAsync(ct);
+
+        return Ok(result);
+    }
+
+    // GET api/problems/{id}
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ProblemResponseDto>> GetById(Guid id , CancellationToken ct)
+    {
+        var problem = await _db.Problems
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id , ct);
+
+        if ( problem is null )
+            return NotFound();
+
+        return Ok(new ProblemResponseDto
+        {
+            Id = problem.Id ,
+            Slug = problem.Slug ,
+            Title = problem.Title ,
+            Difficulty = problem.Difficulty ,
+            StatusCode = problem.StatusCode ,
+            IsActive = problem.IsActive ,
+            AcceptancePercent = problem.AcceptancePercent ,
+            TimeLimitMs = problem.TimeLimitMs ,
+            MemoryLimitKb = problem.MemoryLimitKb ,
+            CreatedAt = problem.CreatedAt ,
+            PublishedAt = problem.PublishedAt
+        });
+    }
+
+    // POST api/problems
+    [HttpPost]
+    public async Task<ActionResult<ProblemResponseDto>> Create(
+        [FromBody] ProblemCreateDto dto ,
+        CancellationToken ct)
+    {
+        var existing = await _db.Problems
+            .FirstOrDefaultAsync(x => x.Slug == dto.Slug , ct);
+
+        if ( existing != null )
+        {
+            if ( existing.IsActive )
+                return Conflict("Slug already exists.");
+
+            // Restore + overwrite
+            existing.Title = dto.Title.Trim();
+            existing.Difficulty = dto.Difficulty;
+            existing.TypeCode = dto.TypeCode;
+            existing.VisibilityCode = dto.VisibilityCode;
+            existing.ScoringCode = dto.ScoringCode;
+            existing.DescriptionMd = dto.DescriptionMd;
+            existing.AcceptancePercent = dto.AcceptancePercent;
+            existing.DisplayIndex = dto.DisplayIndex;
+            existing.TimeLimitMs = dto.TimeLimitMs;
+            existing.MemoryLimitKb = dto.MemoryLimitKb;
+
+            existing.IsActive = true;
+            existing.StatusCode = "draft";
+            existing.PublishedAt = null;
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync(ct);
+
+            return Ok(ToDto(existing));
+        }
+
+        var problem = new Problem
+        {
+            Id = Guid.NewGuid() ,
+            Slug = dto.Slug ,
+            Title = dto.Title.Trim() ,
+            Difficulty = dto.Difficulty ,
+            TypeCode = dto.TypeCode ,
+            VisibilityCode = dto.VisibilityCode ,
+            ScoringCode = dto.ScoringCode ,
+            DescriptionMd = dto.DescriptionMd ,
+            AcceptancePercent = dto.AcceptancePercent ,
+            DisplayIndex = dto.DisplayIndex ,
+            TimeLimitMs = dto.TimeLimitMs ,
+            MemoryLimitKb = dto.MemoryLimitKb ,
+            StatusCode = "draft" ,
+            CreatedAt = DateTime.UtcNow ,
+            IsActive = true
+        };
+
+        _db.Problems.Add(problem);
+        await _db.SaveChangesAsync(ct);
+
+        return CreatedAtAction(
+            nameof(GetById) ,
+            new { id = problem.Id } ,
+            ToDto(problem)
+        );
+    }
+
+    // PUT api/problems
+    [HttpPut]
+    public async Task<ActionResult> Update([FromBody] ProblemUpdateDto dto , CancellationToken ct)
+    {
+        var problem = await _db.Problems.FirstOrDefaultAsync(x => x.Id == dto.Id , ct);
+
+        if ( problem is null )
+            return NotFound();
+
+        if ( !string.IsNullOrWhiteSpace(dto.Title) )
+            problem.Title = dto.Title.Trim();
+
+        if ( !string.IsNullOrWhiteSpace(dto.Slug) )
+            problem.Slug = dto.Slug;
+
+        problem.Difficulty = dto.Difficulty ?? problem.Difficulty;
+        problem.TypeCode = dto.TypeCode ?? problem.TypeCode;
+        problem.VisibilityCode = dto.VisibilityCode ?? problem.VisibilityCode;
+        problem.ScoringCode = dto.ScoringCode ?? problem.ScoringCode;
+        problem.DescriptionMd = dto.DescriptionMd ?? problem.DescriptionMd;
+        problem.AcceptancePercent = dto.AcceptancePercent ?? problem.AcceptancePercent;
+        problem.DisplayIndex = dto.DisplayIndex ?? problem.DisplayIndex;
+        problem.TimeLimitMs = dto.TimeLimitMs ?? problem.TimeLimitMs;
+        problem.MemoryLimitKb = dto.MemoryLimitKb ?? problem.MemoryLimitKb;
+
+        if ( !string.IsNullOrWhiteSpace(dto.StatusCode) )
+        {
+            if ( dto.StatusCode is not ("draft" or "pending" or "published" or "archived") )
+                return BadRequest("Invalid status_code");
+
+            problem.StatusCode = dto.StatusCode;
+
+            if ( dto.StatusCode == "published" )
+                problem.PublishedAt = DateTime.UtcNow;
+            else
+                problem.PublishedAt = null;
+        }
+
+        problem.UpdatedAt = DateTime.UtcNow;
+        problem.UpdatedBy = dto.UpdatedBy;
+
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(problem.Id);
+    }
+
+    // DELETE api/problems/{id}
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> SoftDelete(Guid id , CancellationToken ct)
+    {
+        var problem = await _db.Problems.FirstOrDefaultAsync(x => x.Id == id , ct);
+
+        if ( problem is null )
+            return NotFound();
+
+        problem.IsActive = false;
+        problem.StatusCode = "archived";
+        problem.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return NoContent();
+    }
+
+    private static ProblemResponseDto ToDto(Problem p)
+    {
+        return new ProblemResponseDto
+        {
+            Id = p.Id ,
+            Slug = p.Slug ,
+            Title = p.Title ,
+            Difficulty = p.Difficulty ,
+            StatusCode = p.StatusCode ,
+            IsActive = p.IsActive ,
+            AcceptancePercent = p.AcceptancePercent ,
+            TimeLimitMs = p.TimeLimitMs ,
+            MemoryLimitKb = p.MemoryLimitKb ,
+            CreatedAt = p.CreatedAt ,
+            PublishedAt = p.PublishedAt
+        };
+    }
+}
