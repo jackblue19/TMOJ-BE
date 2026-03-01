@@ -1,6 +1,7 @@
 ﻿using Infrastructure;
 using Infrastructure.Configurations.Auth;
 using Infrastructure.Persistence.Scaffolded.Context;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OData;
 using WebAPI.Extensions;
 using WebAPI.Middlewares;
@@ -35,8 +36,9 @@ builder.Services.AddControllers().AddOData(opt =>
 
 //  jwt sample settings (rcm nen dung)
 builder.Services.AddTraditionalJwtAuth(builder.Configuration);
+builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Google"));
-
+builder.Services.AddSignalR();
 //  wrap + problem details + rate limit
 builder.Services.AddControllers(options =>
 {

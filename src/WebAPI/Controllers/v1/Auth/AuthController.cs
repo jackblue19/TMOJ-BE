@@ -1,4 +1,4 @@
-﻿using Application.UseCases.Auth;
+using Application.UseCases.Auth;
 using Ardalis.Specification;
 using Asp.Versioning;
 using Infrastructure.Configurations.Auth;
@@ -48,13 +48,15 @@ public class AuthController : ControllerBase
     public IActionResult Ping() => Ok("pong");
 
 
+    //
     [AllowAnonymous]
-    [HttpPost("create-account")]        //  có thể dùng như này hoặc dùng theo chuẩn restful-api    ;   rcm dùng như này để sau này dễ dò ra uc nào còn thiếu :>
+    [HttpPost("create-account")]
     public async Task<IActionResult> CreateAccount(
-    [FromBody] CreateAccountRequest req ,
+    [FromBody] CreateAccountRequest req,
     CancellationToken ct)
     {
-        return Ok("sample thôi đó mn tự test logic");
+
+        return Ok("Register success");
     }
 
     [AllowAnonymous]
@@ -118,7 +120,7 @@ public class AuthController : ControllerBase
             User: userDto
         ));
     }
-
+    //
     [AllowAnonymous]
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest req , CancellationToken ct)
