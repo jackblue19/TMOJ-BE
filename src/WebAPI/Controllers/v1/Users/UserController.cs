@@ -13,7 +13,7 @@ namespace WebAPI.Controllers.v1.Users;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
-[Authorize(Roles = "admin")]
+[Authorize]
 public class UserController : ControllerBase
 {
     private readonly TmojDbContext _db;
@@ -25,12 +25,14 @@ public class UserController : ControllerBase
         _passwordHasher = passwordHasher;
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateUserRequest req ,
         CancellationToken ct)
     {
-        if ( await _db.Users.AnyAsync(u => u.Email == req.Email , ct) )
+        var email = req.Email.ToLowerInvariant();
+        if ( await _db.Users.AnyAsync(u => u.Email == email , ct) )
         {
             return BadRequest("Email already exists");
         }
@@ -39,9 +41,9 @@ public class UserController : ControllerBase
         {
             FirstName = req.FirstName ,
             LastName = req.LastName ,
-            Email = req.Email ,
+            Email = email ,
             Password = _passwordHasher.Hash(req.Password) ,
-            Username = req.Username ?? (req.Email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString()) ,
+            Username = req.Username ?? (email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString()) ,
             DisplayName = $"{req.FirstName} {req.LastName}" ,
             LanguagePreference = "vi" ,
             Status = true ,
@@ -52,7 +54,8 @@ public class UserController : ControllerBase
         {
             foreach ( var roleCode in req.Roles )
             {
-                var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == roleCode , ct);
+                var normalizedRoleCode = roleCode.ToLowerInvariant();
+                var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == normalizedRoleCode , ct);
                 if ( role != null )
                 {
                     user.UserRoleUsers.Add(new UserRole { RoleId = role.RoleId });
@@ -98,6 +101,7 @@ public class UserController : ControllerBase
         return Ok(users);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpGet("list-banned")]
     public async Task<IActionResult> ListBanned(CancellationToken ct)
     {
@@ -121,6 +125,7 @@ public class UserController : ControllerBase
         return Ok(users);
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPut("{id}/lock")]
     public async Task<IActionResult> Lock(Guid id, CancellationToken ct)
     {
@@ -133,6 +138,7 @@ public class UserController : ControllerBase
         return Ok("Account locked successfully.");
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPut("{id}/unlock")]
     public async Task<IActionResult> Unlock(Guid id, CancellationToken ct)
     {
@@ -145,6 +151,7 @@ public class UserController : ControllerBase
         return Ok("Account unlocked successfully.");
     }
 
+    [Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {

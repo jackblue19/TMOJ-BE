@@ -55,7 +55,8 @@ public class AuthController : ControllerBase
         [FromBody] CreateAccountRequest req ,
         CancellationToken ct)
     {
-        if ( await _db.Users.AnyAsync(u => u.Email == req.Email , ct) )
+        var email = req.Email.ToLowerInvariant();
+        if ( await _db.Users.AnyAsync(u => u.Email == email , ct) )
         {
             return BadRequest("Email already exists");
         }
@@ -64,9 +65,9 @@ public class AuthController : ControllerBase
         {
             FirstName = req.FirstName ,
             LastName = req.LastName ,
-            Email = req.Email ,
+            Email = email ,
             Password = _passwordHasher.Hash(req.Password) ,
-            Username = req.Email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString() ,
+            Username = email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString() ,
             DisplayName = $"{req.FirstName} {req.LastName}" ,
             LanguagePreference = "vi" ,
             Status = true ,
@@ -84,7 +85,7 @@ public class AuthController : ControllerBase
 
         var verification = new EmailVerification
         {
-            UserId = user.UserId ,
+            User = user ,
             Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) ,
             ExpiresAt = DateTime.UtcNow.AddHours(24)
         };
@@ -104,9 +105,10 @@ public class AuthController : ControllerBase
         [FromBody] ConfirmEmailRequest req ,
         CancellationToken ct)
     {
+        var email = req.Email.ToLowerInvariant();
         var verification = await _db.EmailVerifications
             .Include(v => v.User)
-            .FirstOrDefaultAsync(v => v.User.Email == req.Email && v.Token == req.Token , ct);
+            .FirstOrDefaultAsync(v => v.User.Email == email && v.Token == req.Token , ct);
 
         if ( verification == null || verification.ExpiresAt < DateTime.UtcNow )
         {
@@ -148,9 +150,10 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req , CancellationToken ct)
     {
+        var identifier = req.Identifier.ToLowerInvariant();
         var user = await _db.Users
             .Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Email == req.Identifier || u.Username == req.Identifier , ct);
+            .FirstOrDefaultAsync(u => u.Email == identifier || u.Username == identifier , ct);
 
         if ( user == null || string.IsNullOrEmpty(user.Password) || !_passwordHasher.Verify(req.Password , user.Password) )
         {
@@ -226,7 +229,9 @@ public class AuthController : ControllerBase
                 Audience = new[] { _google.ClientId }
             });
 
-            if ( _google.AllowedDomains.Any() && !_google.AllowedDomains.Any(d => payload.Email.EndsWith($"@{d}" , StringComparison.OrdinalIgnoreCase)) )
+            var email = payload.Email.ToLowerInvariant();
+
+            if ( _google.AllowedDomains.Any() && !_google.AllowedDomains.Any(d => email.EndsWith($"@{d}" , StringComparison.OrdinalIgnoreCase)) )
             {
                 return BadRequest("Login with this email domain is not allowed.");
             }
@@ -234,7 +239,7 @@ public class AuthController : ControllerBase
             var user = await _db.Users
                 .Include(u => u.UserProviders)
                 .Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(u => u.Email == payload.Email , ct);
+                .FirstOrDefaultAsync(u => u.Email == email , ct);
 
             if ( user == null )
             {
@@ -242,12 +247,12 @@ public class AuthController : ControllerBase
 
                 user = new User
                     {
-                        Email = payload.Email,
+                        Email = email,
                         FirstName = payload.GivenName ?? "",
                         LastName = payload.FamilyName ?? "",
                         DisplayName = payload.Name,
                         AvatarUrl = payload.Picture,
-                        Username = payload.Email.Split('@')[0] + Random.Shared.Next(1000, 9999).ToString(),
+                        Username = email.Split('@')[0] + Random.Shared.Next(1000, 9999).ToString(),
                         EmailVerified = payload.EmailVerified,
                         LanguagePreference = "vi",
                         Status = true,
@@ -274,7 +279,7 @@ public class AuthController : ControllerBase
                 {
                     ProviderId = provider.ProviderId,
                     ProviderSubject = payload.Subject,
-                    ProviderEmail = payload.Email,
+                    ProviderEmail = email,
                 });
 
                 if ( studentRole != null )

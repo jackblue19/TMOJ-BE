@@ -1,6 +1,7 @@
 ﻿using Infrastructure;
 using Infrastructure.Configurations.Auth;
 using Infrastructure.Persistence.Scaffolded.Context;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OData;
 using WebAPI.Extensions;
 using WebAPI.Middlewares;
