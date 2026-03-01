@@ -1,13 +1,15 @@
 using System;
 
-namespace WebAPI.Models.Auth;
+namespace WebAPI.Controllers.v1.Auth;
 
 // Request models
 public record CreateAccountRequest(
-    string AccountName ,
-    string AccountEmail ,
-    string Password ,
-    int AccountRole);
+    string FirstName,
+    string LastName,
+    string Email,
+    string Password);
+
+public record ConfirmEmailRequest(string Email, string Token);
 
 public record GoogleLoginRequest(string TokenId);
 

@@ -9,8 +9,9 @@ using Microsoft.Extensions.Options;
 using System.Security.Principal;
 using Google.Apis.Auth;
 using Microsoft.EntityFrameworkCore;
-using WebAPI.Models.Auth;
+
 using Domain.Entities;
+using System.Security.Cryptography;
 
 namespace WebAPI.Controllers.v1.Auth;
 
@@ -49,12 +50,98 @@ public class AuthController : ControllerBase
 
 
     [AllowAnonymous]
-    [HttpPost("create-account")]        //  có thể dùng như này hoặc dùng theo chuẩn restful-api    ;   rcm dùng như này để sau này dễ dò ra uc nào còn thiếu :>
-    public async Task<IActionResult> CreateAccount(
-    [FromBody] CreateAccountRequest req ,
-    CancellationToken ct)
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(
+        [FromBody] CreateAccountRequest req ,
+        CancellationToken ct)
     {
-        return Ok("sample thôi đó mn tự test logic");
+        if ( await _db.Users.AnyAsync(u => u.Email == req.Email , ct) )
+        {
+            return BadRequest("Email already exists");
+        }
+
+        var user = new User
+        {
+            FirstName = req.FirstName ,
+            LastName = req.LastName ,
+            Email = req.Email ,
+            Password = _passwordHasher.Hash(req.Password) ,
+            Username = req.Email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString() ,
+            DisplayName = $"{req.FirstName} {req.LastName}" ,
+            LanguagePreference = "vi" ,
+            Status = true ,
+            EmailVerified = false
+        };
+
+        var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
+        if ( studentRole != null )
+        {
+            user.UserRoleUsers.Add(new UserRole
+            {
+                RoleId = studentRole.RoleId
+            });
+        }
+
+        var verification = new EmailVerification
+        {
+            UserId = user.UserId ,
+            Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) ,
+            ExpiresAt = DateTime.UtcNow.AddHours(24)
+        };
+
+        _db.Users.Add(user);
+        _db.EmailVerifications.Add(verification);
+        await _db.SaveChangesAsync(ct);
+
+        // TODO: Send email with verification.Token
+
+        return Ok(new { Message = "Registration successful. Please check your email to verify your account." , Token = verification.Token });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail(
+        [FromBody] ConfirmEmailRequest req ,
+        CancellationToken ct)
+    {
+        var verification = await _db.EmailVerifications
+            .Include(v => v.User)
+            .FirstOrDefaultAsync(v => v.User.Email == req.Email && v.Token == req.Token , ct);
+
+        if ( verification == null || verification.ExpiresAt < DateTime.UtcNow )
+        {
+            return BadRequest("Invalid or expired verification token.");
+        }
+
+        verification.User.EmailVerified = true;
+        _db.EmailVerifications.Remove(verification);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok("Email verified successfully.");
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(CancellationToken ct)
+    {
+        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if ( string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr , out var userId) )
+        {
+            return Unauthorized();
+        }
+
+        // Revoke all active sessions for this user (or just the current one if tracked)
+        // For simplicity, we'll revoke the latest session or the one matching the refresh token if provided.
+        // Here we just clear the sessions/tokens for this user.
+        var sessions = await _db.UserSessions
+            .Where(s => s.UserId == userId)
+            .Include(s => s.RefreshTokens)
+            .ToListAsync(ct);
+
+        _db.UserSessions.RemoveRange(sessions);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok("Logged out successfully.");
     }
 
     [AllowAnonymous]
@@ -70,6 +157,16 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid username/email or password");
         }
 
+        if ( !user.EmailVerified )
+        {
+            return BadRequest("Please verify your email before logging in.");
+        }
+
+        if ( !user.Status )
+        {
+            return BadRequest("Your account has been locked.");
+        }
+
         // Create Session
         var session = new UserSession
         {
@@ -83,13 +180,12 @@ public class AuthController : ControllerBase
 
         var refreshToken = new RefreshToken
         {
-            SessionId = session.SessionId ,
             TokenHash = refreshTokenHash ,
             ExpireAt = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays)
         };
 
+        session.RefreshTokens.Add(refreshToken);
         _db.UserSessions.Add(session);
-        _db.RefreshTokens.Add(refreshToken);
         await _db.SaveChangesAsync(ct);
 
         var roles = user.UserRoleUsers.Select(ur => ur.Role.RoleCode).ToList();
@@ -130,6 +226,11 @@ public class AuthController : ControllerBase
                 Audience = new[] { _google.ClientId }
             });
 
+            if ( _google.AllowedDomains.Any() && !_google.AllowedDomains.Any(d => payload.Email.EndsWith($"@{d}" , StringComparison.OrdinalIgnoreCase)) )
+            {
+                return BadRequest("Login with this email domain is not allowed.");
+            }
+
             var user = await _db.Users
                 .Include(u => u.UserProviders)
                 .Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
@@ -146,7 +247,7 @@ public class AuthController : ControllerBase
                         LastName = payload.FamilyName ?? "",
                         DisplayName = payload.Name,
                         AvatarUrl = payload.Picture,
-                        Username = payload.Email.Split('@')[0] + Guid.NewGuid().ToString("N").Substring(0, 4),
+                        Username = payload.Email.Split('@')[0] + Random.Shared.Next(1000, 9999).ToString(),
                         EmailVerified = payload.EmailVerified,
                         LanguagePreference = "vi",
                         Status = true,
@@ -180,7 +281,6 @@ public class AuthController : ControllerBase
                 {
                     user.UserRoleUsers.Add(new UserRole
                     {
-                        UserId = user.UserId,
                         RoleId = studentRole.RoleId,
                     });
                 }
@@ -202,13 +302,12 @@ public class AuthController : ControllerBase
 
             var refreshToken = new RefreshToken
             {
-                SessionId = session.SessionId ,
                 TokenHash = refreshTokenHash ,
                 ExpireAt = DateTime.UtcNow.AddDays(_jwt.RefreshTokenDays)
             };
 
+            session.RefreshTokens.Add(refreshToken);
             _db.UserSessions.Add(session);
-            _db.RefreshTokens.Add(refreshToken);
             await _db.SaveChangesAsync(ct);
 
             var roles = user.UserRoleUsers.Select(ur => ur.Role.RoleCode).ToList();
@@ -241,7 +340,7 @@ public class AuthController : ControllerBase
         {
             return BadRequest("Invalid Google Token");
         }
-        catch ( Exception ex )
+        catch ( Exception )
         {
             return StatusCode(500 , "Internal Server Error during Google Login");
         }
