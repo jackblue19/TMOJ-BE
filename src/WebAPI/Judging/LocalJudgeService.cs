@@ -6,186 +6,181 @@ namespace WebAPI.Judging;
 
 public sealed class LocalJudgeService
 {
-    private readonly string _root;
+    private const string CppCompiler = "g++";
 
-    public LocalJudgeService(IWebHostEnvironment env)
+    public async Task<JudgeManyResponse> CompileAndRunManyAsync(
+        CompileRunManyRequest req ,
+        CancellationToken ct)
     {
-        _root = Path.Combine(env.ContentRootPath , "judge_workspace");
-        Directory.CreateDirectory(_root);
-    }
-
-    public async Task<RunSampleResponse> CompileAndRunSamplesAsync(CompileRunRequest req , CancellationToken ct)
-    {
-        var workId = Guid.NewGuid().ToString("N");
-        var workDir = Path.Combine(_root , workId);
-        Directory.CreateDirectory(workDir);
-
+        var workDir = CreateWorkDir();
         try
         {
-            var (sourceFileName, compilerExe, compilerArgsTemplate) = ResolveCompiler(req.RuntimeName);
+            var exePath = Path.Combine(workDir , "solution.exe");
 
-            var srcPath = Path.Combine(workDir , sourceFileName);
-            await File.WriteAllTextAsync(srcPath , req.SourceCode , Encoding.UTF8 , ct);
-
-            var exePath = Path.Combine(workDir , "program.exe");
-
-            var compile = await RunProcessAsync(new ProcessSpec
+            // 1) COMPILE
+            var compile = await CompileCppAsync(req.SourceCode , exePath , workDir , ct);
+            if ( !compile.Ok )
             {
-                FileName = compilerExe ,
-                Arguments = compilerArgsTemplate
-                    .Replace("{src}" , Quote(srcPath))
-                    .Replace("{exe}" , Quote(exePath)) ,
-                WorkingDirectory = workDir ,
-                TimeoutMs = 30_000
-            } , ct);
-
-            var response = new RunSampleResponse
-            {
-                Compile = new CompileInfo
+                return new JudgeManyResponse
                 {
-                    Ok = compile.ExitCode == 0 ,
-                    ExitCode = compile.ExitCode ,
-                    Stdout = compile.Stdout ,
-                    Stderr = compile.Stderr
-                } ,
-                Summary = new RunSummary()
-            };
-
-            if ( compile.ExitCode != 0 )
-            {
-                response.Summary.Verdict = "ce";
-                response.Summary.Passed = 0;
-                response.Summary.Total = req.Tests.Count;
-                return response;
+                    Compile = compile ,
+                    Summary = new RunSummary
+                    {
+                        Verdict = "ce" ,
+                        Passed = 0 ,
+                        Total = req.Cases.Count ,
+                        TimeMs = 0
+                    } ,
+                    Cases = new List<JudgeCaseResult>()
+                };
             }
 
-            int passed = 0;
-            int total = req.Tests.Count;
-            int maxTime = 0;
+            // 2) RUN CASES
+            var cases = new List<JudgeCaseResult>(req.Cases.Count);
+            var passed = 0;
+            var totalTime = 0;
 
-            foreach ( var t in req.Tests.OrderBy(x => x.Index) )
+            foreach ( var c in req.Cases.OrderBy(x => x.Ordinal) )
             {
-                var run = await RunProcessAsync(new ProcessSpec
-                {
-                    FileName = exePath ,
-                    Arguments = "" ,
-                    WorkingDirectory = workDir ,
-                    TimeoutMs = req.TimeLimitMs ,
-                    Stdin = t.Input
-                } , ct);
+                ct.ThrowIfCancellationRequested();
 
-                var caseVerdict = "ac";
+                var run = await RunExeAsync(
+                    exePath ,
+                    c.Input ?? string.Empty ,
+                    req.TimeLimitMs ,
+                    workDir ,
+                    ct);
+
+                totalTime += run.ElapsedMs;
+
+                var actual = run.Stdout;
+                var expected = c.ExpectedOutput ?? string.Empty;
+
+                var verdict = "ie";
 
                 if ( run.TimedOut )
                 {
-                    caseVerdict = "tle";
+                    verdict = "tle";
                 }
                 else if ( run.ExitCode != 0 )
                 {
-                    caseVerdict = "re";
+                    verdict = "re";
                 }
                 else
                 {
-                    var actualNormalized = Normalize(run.Stdout , req.CompareMode);
-                    var expectedNormalized = Normalize(t.ExpectedOutput , req.CompareMode);
-
-                    if ( !string.Equals(actualNormalized , expectedNormalized , StringComparison.Ordinal) )
-                        caseVerdict = "wa";
+                    var ok = CompareOutputs(actual , expected , req.CompareMode);
+                    verdict = ok ? "ac" : "wa";
                 }
 
-                if ( caseVerdict == "ac" ) passed++;
+                if ( verdict == "ac" ) passed++;
 
-                maxTime = Math.Max(maxTime , run.ElapsedMs);
-
-                response.Cases.Add(new SampleCaseResult
+                cases.Add(new JudgeCaseResult
                 {
-                    Index = t.Index ,
-                    Verdict = caseVerdict ,
+                    TestcaseId = c.TestcaseId ,
+                    Ordinal = c.Ordinal ,
+                    Verdict = verdict ,
                     ExitCode = run.ExitCode ,
                     TimedOut = run.TimedOut ,
                     TimeMs = run.ElapsedMs ,
                     Stdout = run.Stdout ,
                     Stderr = run.Stderr ,
-                    ExpectedOutput = t.ExpectedOutput ,
-                    ActualOutput = run.Stdout
+                    Input = c.Input ,
+                    ExpectedOutput = c.ExpectedOutput ,
+                    ActualOutput = actual
                 });
+
+                if ( req.StopOnFirstFail && verdict != "ac" )
+                    break;
             }
 
-            response.Summary.Total = total;
-            response.Summary.Passed = passed;
-            response.Summary.TimeMs = maxTime;
-            response.Summary.Verdict = passed == total ? "ac" : response.Cases.First(x => x.Verdict != "ac").Verdict;
+            var finalVerdict = cases.Any(x => x.Verdict != "ac") ? cases.First(x => x.Verdict != "ac").Verdict : "ac";
 
-            return response;
+            return new JudgeManyResponse
+            {
+                Compile = compile ,
+                Summary = new RunSummary
+                {
+                    Verdict = finalVerdict ,
+                    Passed = passed ,
+                    Total = req.Cases.Count ,
+                    TimeMs = totalTime
+                } ,
+                Cases = cases
+            };
         }
         finally
         {
-            try { Directory.Delete(workDir , recursive: true); } catch { }
+            try { Directory.Delete(workDir , true); } catch { }
         }
     }
 
-    private static (string SourceFileName, string CompilerExe, string CompilerArgsTemplate) ResolveCompiler(string runtimeName)
+    private static string CreateWorkDir()
     {
-        var name = runtimeName.Trim().ToLowerInvariant();
+        var dir = Path.Combine(Path.GetTempPath() , "tmoj_judge_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        return dir;
+    }
 
-        if ( name.Contains("c++") || name.Contains("g++") || name.Contains("cpp") )
+    private static bool CompareOutputs(string actual , string expected , CompareMode mode)
+    {
+        if ( mode == CompareMode.Raw )
+            return actual == expected;
+
+        var a = Normalize(actual);
+        var e = Normalize(expected);
+        return a == e;
+    }
+
+    private static string Normalize(string input)
+    {
+        return input.Replace("\r\n" , "\n")
+                    .Replace("\r" , "\n")
+                    .TrimEnd();
+    }
+
+    private static async Task<CompileInfo> CompileCppAsync(
+        string sourceCode ,
+        string exePath ,
+        string workDir ,
+        CancellationToken ct)
+    {
+        var cppPath = Path.Combine(workDir , "main.cpp");
+        await File.WriteAllTextAsync(cppPath , sourceCode , Encoding.UTF8 , ct);
+
+        var psi = new ProcessStartInfo
         {
-            return ("main.cpp", "g++", "-O2 -std=c++17 {src} -o {exe}");
-        }
+            FileName = CppCompiler ,
+            Arguments = $"-std=c++17 -O2 \"{cppPath}\" -o \"{exePath}\"" ,
+            WorkingDirectory = workDir ,
+            RedirectStandardOutput = true ,
+            RedirectStandardError = true ,
+            RedirectStandardInput = false ,
+            UseShellExecute = false ,
+            CreateNoWindow = true
+        };
 
-        if ( name.Contains("c (") || name.Contains("gcc") || name == "c" )
+        using var p = new Process { StartInfo = psi };
+
+        p.Start();
+
+        var stdoutTask = p.StandardOutput.ReadToEndAsync();
+        var stderrTask = p.StandardError.ReadToEndAsync();
+
+        await p.WaitForExitAsync(ct);
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+
+        return new CompileInfo
         {
-            return ("main.c", "gcc", "-O2 -std=c11 {src} -o {exe}");
-        }
-
-        throw new InvalidOperationException($"Unsupported runtime: {runtimeName}");
+            Ok = p.ExitCode == 0 ,
+            ExitCode = p.ExitCode ,
+            Stdout = stdout ?? "" ,
+            Stderr = stderr ?? ""
+        };
     }
 
-    private static string Normalize(string s , CompareMode mode)
-    {
-        var x = s ?? string.Empty;
-        x = x.Replace("\r\n" , "\n").Replace("\r" , "\n");
-
-        if ( mode == CompareMode.Exact )
-            return x;
-
-        x = x.Trim();
-
-        if ( mode == CompareMode.TrimIgnoreOutputPrefix )
-        {
-            const string prefix = "OUTPUT:";
-            var lines = x.Split('\n');
-            if ( lines.Length > 0 )
-            {
-                var first = lines[0].TrimStart();
-                if ( first.StartsWith(prefix , StringComparison.OrdinalIgnoreCase) )
-                {
-                    lines[0] = first.Substring(prefix.Length).TrimStart();
-                    x = string.Join("\n" , lines).Trim();
-                }
-            }
-        }
-
-        return x;
-    }
-
-    private static string Quote(string p)
-    {
-        if ( string.IsNullOrWhiteSpace(p) ) return "\"\"";
-        if ( p.Contains('"') ) p = p.Replace("\"" , "\\\"");
-        return $"\"{p}\"";
-    }
-
-    private sealed class ProcessSpec
-    {
-        public string FileName { get; set; } = null!;
-        public string Arguments { get; set; } = "";
-        public string WorkingDirectory { get; set; } = "";
-        public int TimeoutMs { get; set; }
-        public string? Stdin { get; set; }
-    }
-
-    private sealed class ProcessResult
+    private sealed class RunInternal
     {
         public int ExitCode { get; set; }
         public bool TimedOut { get; set; }
@@ -194,13 +189,17 @@ public sealed class LocalJudgeService
         public string Stderr { get; set; } = "";
     }
 
-    private static async Task<ProcessResult> RunProcessAsync(ProcessSpec spec , CancellationToken ct)
+    private static async Task<RunInternal> RunExeAsync(
+        string exePath ,
+        string stdin ,
+        int timeLimitMs ,
+        string workDir ,
+        CancellationToken ct)
     {
         var psi = new ProcessStartInfo
         {
-            FileName = spec.FileName ,
-            Arguments = spec.Arguments ,
-            WorkingDirectory = spec.WorkingDirectory ,
+            FileName = exePath ,
+            WorkingDirectory = workDir ,
             RedirectStandardInput = true ,
             RedirectStandardOutput = true ,
             RedirectStandardError = true ,
@@ -208,45 +207,49 @@ public sealed class LocalJudgeService
             CreateNoWindow = true
         };
 
-        using var p = new Process { StartInfo = psi , EnableRaisingEvents = true };
+        using var p = new Process { StartInfo = psi };
 
         var sw = Stopwatch.StartNew();
         p.Start();
 
-        if ( !string.IsNullOrEmpty(spec.Stdin) )
-        {
-            await p.StandardInput.WriteAsync(spec.Stdin);
-        }
-        p.StandardInput.Close();
-
+        // Bắt đầu đọc output ngay lập tức (an toàn hơn BeginOutputReadLine)
         var stdoutTask = p.StandardOutput.ReadToEndAsync();
         var stderrTask = p.StandardError.ReadToEndAsync();
 
-        var timedOut = false;
+        // Ghi stdin + đóng để gửi EOF (quan trọng nhất để tránh treo)
+        await p.StandardInput.WriteAsync(stdin);
+        p.StandardInput.Close();
 
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(spec.TimeoutMs);
+        var exitTask = p.WaitForExitAsync(ct);
+        var delayTask = Task.Delay(timeLimitMs , ct);
 
-        try
+        var finished = await Task.WhenAny(exitTask , delayTask);
+
+        if ( finished == delayTask )
         {
-            await p.WaitForExitAsync(timeoutCts.Token);
-        }
-        catch ( OperationCanceledException )
-        {
-            timedOut = true;
             try { p.Kill(entireProcessTree: true); } catch { }
-            try { await p.WaitForExitAsync(CancellationToken.None); } catch { }
+            sw.Stop();
+
+            return new RunInternal
+            {
+                ExitCode = -1 ,
+                TimedOut = true ,
+                ElapsedMs = (int) sw.ElapsedMilliseconds ,
+                Stdout = "" ,
+                Stderr = ""
+            };
         }
+
+        await exitTask;
+        sw.Stop();
 
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
 
-        sw.Stop();
-
-        return new ProcessResult
+        return new RunInternal
         {
-            ExitCode = timedOut ? -1 : p.ExitCode ,
-            TimedOut = timedOut ,
+            ExitCode = p.ExitCode ,
+            TimedOut = false ,
             ElapsedMs = (int) sw.ElapsedMilliseconds ,
             Stdout = stdout ?? "" ,
             Stderr = stderr ?? ""
