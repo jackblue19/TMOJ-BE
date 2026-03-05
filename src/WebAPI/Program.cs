@@ -1,9 +1,14 @@
-﻿using Infrastructure;
+﻿using Application;
+using Application.UseCases.Problems.Queries.GetAllProblems;
+using Domain.Abstractions;
+using Infrastructure;
 using Infrastructure.Configurations.Auth;
+using Infrastructure.Persistence.Common;
 using Infrastructure.Persistence.Scaffolded.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OData;
 using WebAPI.Extensions;
+using WebAPI.Judging;
 using WebAPI.Middlewares;
 using WebAPI.OData;
 
@@ -12,20 +17,20 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 //  database
 builder.Services.AddPostgresConnection(builder.Configuration);
-builder.Services.AddDbContext<TmojDbContext>((sp, opt) =>
+builder.Services.AddDbContext<TmojDbContext>((sp , opt) =>
 {
-    if (builder.Environment.IsDevelopment())
+    if ( builder.Environment.IsDevelopment() )
     {
         opt.EnableDetailedErrors();
         opt.EnableSensitiveDataLogging();
-        opt.LogTo(Console.WriteLine, LogLevel.Information);
+        opt.LogTo(Console.WriteLine , LogLevel.Information);
     }
 });
 
 //  controller + odata
 builder.Services.AddControllers().AddOData(opt =>
 {
-    opt.AddRouteComponents("odata", EdmModelBuilder.GetEdmModel())
+    opt.AddRouteComponents("odata" , EdmModelBuilder.GetEdmModel())
         .Select()
         .Filter()
         .OrderBy()
@@ -33,6 +38,14 @@ builder.Services.AddControllers().AddOData(opt =>
         .Count()
         .SetMaxTop(100);
 });
+
+builder.Services.AddScoped(
+    typeof(IReadRepository<,>) ,
+    typeof(EfReadRepository<,>));
+builder.Services.AddScoped(
+    typeof(IWriteRepository<,>) ,
+    typeof(EfWriteRepository<,>));
+builder.Services.AddScoped<IUnitOfWork , EfUnitOfWork>();
 
 //  jwt sample settings (rcm nen dung)
 builder.Services.AddTraditionalJwtAuth(builder.Configuration);
@@ -58,9 +71,18 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddScalarWithApiVersioning(builder.Configuration);
 
+//  DI
+builder.Services.AddSingleton<LocalJudgeService>();
+
 //  mediatr -> sau này refactor thì sẽ dùng
 //builder.Services.AddMediatR(cfg =>
 //    cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
+//builder.Services.AddMediatR(cfg =>
+//{
+//    cfg.RegisterServicesFromAssembly(
+//        typeof(GetProblemsQuery).Assembly);
+//});
+builder.Services.AddApplication();
 
 builder.Services.AddHttpLogging(o =>
 {
@@ -85,13 +107,23 @@ builder.Services.AddCors(options =>
 builder.Services.Configure<LocalStorageOptions>(
     builder.Configuration.GetSection("LocalStorage"));
 
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("ProblemsList" , policy =>
+    {
+        policy
+            .Expire(TimeSpan.FromSeconds(30))
+            .Tag("problems");
+    });
+});
+
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>) , typeof(ValidationBehavior<,>));
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>) , typeof(LoggingBehavior<,>));
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if ( app.Environment.IsDevelopment() )
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -110,15 +142,17 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseOutputCache();
+
 app.MapControllers();
 app.UseStatusCodePages();
 app.UseHttpLogging();
 app.UseMiddleware<RequestLogScopeMiddleware>();
 
 //  minimal apis
-app.MapGet("/health", () => Results.Ok(new
+app.MapGet("/health" , () => Results.Ok(new
 {
-    status = "Healthy",
+    status = "Healthy" ,
     timestamp = DateTime.UtcNow
 }));
 
