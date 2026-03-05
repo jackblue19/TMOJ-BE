@@ -74,6 +74,7 @@ public class ProblemsController : ControllerBase
             Difficulty = problem.Difficulty ,
             StatusCode = problem.StatusCode ,
             IsActive = problem.IsActive ,
+            Content = problem.DescriptionMd ,
             AcceptancePercent = problem.AcceptancePercent ,
             TimeLimitMs = problem.TimeLimitMs ,
             MemoryLimitKb = problem.MemoryLimitKb ,
