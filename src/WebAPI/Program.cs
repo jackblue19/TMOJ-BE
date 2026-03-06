@@ -7,6 +7,8 @@ using Infrastructure.Persistence.Common;
 using Infrastructure.Persistence.Scaffolded.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OData;
+using System.Net.WebSockets;
+using System.Text;
 using WebAPI.Extensions;
 using WebAPI.Judging;
 using WebAPI.Middlewares;
@@ -72,7 +74,14 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddScalarWithApiVersioning(builder.Configuration);
 
 //  DI
-builder.Services.AddSingleton<LocalJudgeService>();
+
+builder.Services.AddSingleton<JudgeConnectionRegistry>();
+builder.Services.AddSingleton<JudgeDispatchService>();
+builder.Services.AddHostedService<JudgeBridgeBackgroundService>();
+builder.Services.AddControllers();
+
+//builder.WebHost.UseUrls("http://+:8080"); //  comment cái này là test local được deploy thì mở ra
+
 
 //  mediatr -> sau này refactor thì sẽ dùng
 //builder.Services.AddMediatR(cfg =>
@@ -125,9 +134,9 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 //if ( app.Environment.IsDevelopment() )
 //{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseScalarUI();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseScalarUI();
 //}
 
 app.UseHttpsRedirection();
@@ -144,16 +153,49 @@ app.UseAuthorization();
 
 app.UseOutputCache();
 
+//app.UseWebSockets();
+
+
+app.Map("/bridge" , async context =>
+{
+    if ( !context.WebSockets.IsWebSocketRequest )
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("WebSocket expected");
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    Console.WriteLine("JUDGE CONNECTED");
+
+    var buffer = new byte[8192];
+    while ( socket.State == WebSocketState.Open )
+    {
+        var result = await socket.ReceiveAsync(buffer , CancellationToken.None);
+        if ( result.MessageType == WebSocketMessageType.Close )
+        {
+            Console.WriteLine("JUDGE DISCONNECTED");
+            break;
+        }
+
+        var msg = Encoding.UTF8.GetString(buffer , 0 , result.Count);
+        Console.WriteLine($"FROM JUDGE: {msg}");
+    }
+});
+
 app.MapControllers();
 app.UseStatusCodePages();
 app.UseHttpLogging();
 app.UseMiddleware<RequestLogScopeMiddleware>();
 
-//  minimal apis
+
+
+//  minimal apis    +   judge-server (vnoj-tier)
 app.MapGet("/health" , () => Results.Ok(new
 {
     status = "Healthy" ,
     timestamp = DateTime.UtcNow
 }));
+
 
 app.Run();
