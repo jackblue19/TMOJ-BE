@@ -1,8 +1,14 @@
-﻿using Infrastructure;
+﻿using Application;
+using Application.UseCases.Problems.Queries.GetAllProblems;
+using Domain.Abstractions;
+using Infrastructure;
 using Infrastructure.Configurations.Auth;
+using Infrastructure.Persistence.Common;
 using Infrastructure.Persistence.Scaffolded.Context;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OData;
+using System.Net.WebSockets;
+using System.Text;
 using WebAPI.Extensions;
 using WebAPI.Judging;
 using WebAPI.Middlewares;
@@ -35,6 +41,14 @@ builder.Services.AddControllers().AddOData(opt =>
         .SetMaxTop(100);
 });
 
+builder.Services.AddScoped(
+    typeof(IReadRepository<,>) ,
+    typeof(EfReadRepository<,>));
+builder.Services.AddScoped(
+    typeof(IWriteRepository<,>) ,
+    typeof(EfWriteRepository<,>));
+builder.Services.AddScoped<IUnitOfWork , EfUnitOfWork>();
+
 //  jwt sample settings (rcm nen dung)
 builder.Services.AddTraditionalJwtAuth(builder.Configuration);
 builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection("Authentication:Google"));
@@ -60,11 +74,24 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddScalarWithApiVersioning(builder.Configuration);
 
 //  DI
-builder.Services.AddSingleton<LocalJudgeService>();
+
+builder.Services.AddSingleton<JudgeConnectionRegistry>();
+builder.Services.AddSingleton<JudgeDispatchService>();
+builder.Services.AddHostedService<JudgeBridgeBackgroundService>();
+builder.Services.AddControllers();
+
+//builder.WebHost.UseUrls("http://+:8080"); //  comment cái này là test local được deploy thì mở ra
+
 
 //  mediatr -> sau này refactor thì sẽ dùng
 //builder.Services.AddMediatR(cfg =>
 //    cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
+//builder.Services.AddMediatR(cfg =>
+//{
+//    cfg.RegisterServicesFromAssembly(
+//        typeof(GetProblemsQuery).Assembly);
+//});
+builder.Services.AddApplication();
 
 builder.Services.AddHttpLogging(o =>
 {
@@ -89,18 +116,28 @@ builder.Services.AddCors(options =>
 builder.Services.Configure<LocalStorageOptions>(
     builder.Configuration.GetSection("LocalStorage"));
 
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("ProblemsList" , policy =>
+    {
+        policy
+            .Expire(TimeSpan.FromSeconds(30))
+            .Tag("problems");
+    });
+});
+
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>) , typeof(ValidationBehavior<,>));
 //builder.Services.AddTransient(typeof(IPipelineBehavior<,>) , typeof(LoggingBehavior<,>));
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if ( app.Environment.IsDevelopment() )
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseScalarUI();
-}
+//if ( app.Environment.IsDevelopment() )
+//{
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseScalarUI();
+//}
 
 app.UseHttpsRedirection();
 app.UseExceptionHandler();
@@ -114,16 +151,51 @@ app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseOutputCache();
+
+//app.UseWebSockets();
+
+
+app.Map("/bridge" , async context =>
+{
+    if ( !context.WebSockets.IsWebSocketRequest )
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("WebSocket expected");
+        return;
+    }
+
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    Console.WriteLine("JUDGE CONNECTED");
+
+    var buffer = new byte[8192];
+    while ( socket.State == WebSocketState.Open )
+    {
+        var result = await socket.ReceiveAsync(buffer , CancellationToken.None);
+        if ( result.MessageType == WebSocketMessageType.Close )
+        {
+            Console.WriteLine("JUDGE DISCONNECTED");
+            break;
+        }
+
+        var msg = Encoding.UTF8.GetString(buffer , 0 , result.Count);
+        Console.WriteLine($"FROM JUDGE: {msg}");
+    }
+});
+
 app.MapControllers();
 app.UseStatusCodePages();
 app.UseHttpLogging();
 app.UseMiddleware<RequestLogScopeMiddleware>();
 
-//  minimal apis
+
+
+//  minimal apis    +   judge-server (vnoj-tier)
 app.MapGet("/health" , () => Results.Ok(new
 {
     status = "Healthy" ,
     timestamp = DateTime.UtcNow
 }));
+
 
 app.Run();

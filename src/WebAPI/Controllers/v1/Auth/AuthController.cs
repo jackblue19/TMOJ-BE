@@ -14,6 +14,8 @@ using System.Security.Cryptography;
 using WebAPI.Models.Common;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
+using Serilog.Core;
 using Microsoft.Extensions.Configuration;
 
 namespace WebAPI.Controllers.v1.Auth;
@@ -31,6 +33,7 @@ public class AuthController : ControllerBase
     private readonly GoogleOptions _google;
     private readonly GithubOptions _github;
     private readonly TmojDbContext _db;
+    private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _config;
 
     public AuthController(
@@ -40,6 +43,7 @@ public class AuthController : ControllerBase
         IOptions<JwtOptions> jwt ,
         IOptions<GoogleOptions> google ,
         IOptions<GithubOptions> github ,
+        ILogger<AuthController> logger,
         TmojDbContext db,
         IConfiguration config)
     {
@@ -50,6 +54,7 @@ public class AuthController : ControllerBase
         _google = google.Value;
         _github = github.Value;
         _db = db;
+        _logger = logger;
         _config = config;
     }
 
@@ -63,7 +68,9 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register(
         [FromBody] CreateAccountRequest req ,
         CancellationToken ct)
+
     {
+       _logger.LogInformation("Register endpoint called");
         try
         {
             var email = req.Email.ToLowerInvariant();
@@ -71,7 +78,22 @@ public class AuthController : ControllerBase
             {
                 return BadRequest(new { Message = "Email already exists" });
             }
+            bool IsFptEmail(string email)
+                {
+                    if (string.IsNullOrWhiteSpace(email))
+                        return false;
 
+                    return email
+                        .ToLowerInvariant()
+                        .EndsWith("@fpt.edu.vn");
+                }
+            var roleCode = IsFptEmail(email) ? "admin" : "student";
+
+            var role = await _db.Roles
+                .FirstOrDefaultAsync(r => r.RoleCode == roleCode, ct);
+
+            if (role == null)
+                throw new Exception("Role not found");
             var user = new User
             {
                 FirstName = req.FirstName ,
@@ -82,17 +104,20 @@ public class AuthController : ControllerBase
                 DisplayName = $"{req.FirstName} {req.LastName}" ,
                 LanguagePreference = "vi" ,
                 Status = true ,
-                EmailVerified = false
-            };
+                EmailVerified = false,
+        RoleId = role.RoleId
+    };
 
-            var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
-            if ( studentRole != null )
+            var selectedRole = await _db.Roles
+     .FirstOrDefaultAsync(r => r.RoleCode == roleCode, ct);
+
+            if (selectedRole == null)
+                throw new Exception("Role not found");
+
+            user.UserRoleUsers.Add(new UserRole
             {
-                user.UserRoleUsers.Add(new UserRole
-                {
-                    RoleId = studentRole.RoleId
-                });
-            }
+                RoleId = selectedRole.RoleId
+            });
 
             var verification = new EmailVerification
             {
@@ -150,6 +175,7 @@ public class AuthController : ControllerBase
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken ct)
+        
     {
         try
         {
@@ -658,7 +684,8 @@ public class AuthController : ControllerBase
             LastName: user.LastName ,
             DisplayName: user.DisplayName ,
             Username: user.Username ,
-            AvatarUrl: user.AvatarUrl ,
+            AvatarUrl: user.AvatarUrl,
+            emailVerified: user.EmailVerified,
             Roles: roles
         );
 
