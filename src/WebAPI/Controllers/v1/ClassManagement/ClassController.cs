@@ -15,7 +15,7 @@ namespace WebAPI.Controllers.v1.ClassManagement;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
-// [Authorize]
+[Authorize]
 public class ClassController : ControllerBase
 {
     private readonly TmojDbContext _db;
@@ -28,7 +28,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // POST api/v1/class  →  Create Class (Manager)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager")]
+    [Authorize(Roles = "admin,manager")]
     [HttpPost]
     public async Task<IActionResult> Create(
         [FromBody] CreateClassRequest req,
@@ -77,7 +77,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // GET api/v1/class  →  View All Class (Manager)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] Guid? semesterId,
@@ -174,7 +174,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // PUT api/v1/class/{id}/teacher  →  Assign Teacher (Manager)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager")]
+    [Authorize(Roles = "admin,manager")]
     [HttpPut("{id:guid}/teacher")]
     public async Task<IActionResult> AssignTeacher(
         Guid id,
@@ -203,7 +203,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // POST api/v1/class/assign-teacher-role  →  Assign Teacher Role (Manager)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager")]
+    [Authorize(Roles = "admin,manager")]
     [HttpPost("assign-teacher-role")]
     public async Task<IActionResult> AssignTeacherRole(
         [FromBody] AssignTeacherRoleRequest req,
@@ -239,7 +239,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // POST api/v1/class/{id}/invite-code  →  Create Invite Code (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpPost("{id:guid}/invite-code")]
     public async Task<IActionResult> CreateInviteCode(Guid id, CancellationToken ct)
     {
@@ -277,7 +277,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // DELETE api/v1/class/{id}/invite-code  →  Close Invite Code (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpDelete("{id:guid}/invite-code")]
     public async Task<IActionResult> CloseInviteCode(Guid id, CancellationToken ct)
     {
@@ -310,7 +310,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // POST api/v1/class/{id}/members  →  Add Student (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpPost("{id:guid}/members")]
     public async Task<IActionResult> AddStudent(
         Guid id,
@@ -359,7 +359,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // DELETE api/v1/class/{id}/members/{userId}  →  Remove Student (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpDelete("{id:guid}/members/{userId:guid}")]
     public async Task<IActionResult> RemoveStudent(
         Guid id, Guid userId, CancellationToken ct)
@@ -471,7 +471,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // GET api/v1/class/{id}/members/{userId}  →  View Student Information (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpGet("{id:guid}/members/{userId:guid}")]
     public async Task<IActionResult> GetStudentInfo(
         Guid id, Guid userId, CancellationToken ct)
@@ -609,7 +609,7 @@ public class ClassController : ControllerBase
     // ──────────────────────────────────────────
     // GET api/v1/class/{id}/report/export  →  Export Mark Report (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpGet("{id:guid}/report/export")]
     public async Task<IActionResult> ExportMarkReport(Guid id, CancellationToken ct)
     {

@@ -13,7 +13,7 @@ namespace WebAPI.Controllers.v1.ClassContestManagement;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/class/{classId:guid}/contests")]
-// [Authorize]
+[Authorize]
 public class ClassContestController : ControllerBase
 {
     private readonly TmojDbContext _db;
@@ -64,7 +64,7 @@ public class ClassContestController : ControllerBase
     // ──────────────────────────────────────────
     // POST .../contests  →  Create Class's Contest (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpPost]
     public async Task<IActionResult> Create(
         Guid classId,
@@ -220,7 +220,7 @@ public class ClassContestController : ControllerBase
     // ──────────────────────────────────────────
     // PUT .../contests/{contestId}/extend  →  Extend Contest's Time (Teacher)
     // ──────────────────────────────────────────
-    // [Authorize(Roles = "admin,manager,teacher")]
+    [Authorize(Roles = "admin,manager,teacher")]
     [HttpPut("{contestId:guid}/extend")]
     public async Task<IActionResult> ExtendTime(
         Guid classId, Guid contestId,
