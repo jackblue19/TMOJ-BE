@@ -43,8 +43,8 @@ public class AuthController : ControllerBase
         IOptions<JwtOptions> jwt ,
         IOptions<GoogleOptions> google ,
         IOptions<GithubOptions> github ,
-        ILogger<AuthController> logger,
-        TmojDbContext db,
+        ILogger<AuthController> logger ,
+        TmojDbContext db ,
         IConfiguration config)
     {
         _tokenService = tokenService;
@@ -70,7 +70,7 @@ public class AuthController : ControllerBase
         CancellationToken ct)
 
     {
-       _logger.LogInformation("Register endpoint called");
+        _logger.LogInformation("Register endpoint called");
         try
         {
             var email = req.Email.ToLowerInvariant();
@@ -79,20 +79,20 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "Email already exists" });
             }
             bool IsFptEmail(string email)
-                {
-                    if (string.IsNullOrWhiteSpace(email))
-                        return false;
+            {
+                if ( string.IsNullOrWhiteSpace(email) )
+                    return false;
 
-                    return email
-                        .ToLowerInvariant()
-                        .EndsWith("@fe.edu.vn");
-                }
+                return email
+                    .ToLowerInvariant()
+                    .EndsWith("@fe.edu.vn");
+            }
             var roleCode = IsFptEmail(email) ? "teacher" : "student";
 
             var role = await _db.Roles
-                .FirstOrDefaultAsync(r => r.RoleCode == roleCode, ct);
+                .FirstOrDefaultAsync(r => r.RoleCode == roleCode , ct);
 
-            if (role == null)
+            if ( role == null )
                 throw new Exception("Role not found");
             var user = new User
             {
@@ -104,14 +104,14 @@ public class AuthController : ControllerBase
                 DisplayName = $"{req.FirstName} {req.LastName}" ,
                 LanguagePreference = "vi" ,
                 Status = true ,
-                EmailVerified = false,
-        RoleId = role.RoleId
-    };
+                EmailVerified = false ,
+                RoleId = role.RoleId
+            };
 
             var selectedRole = await _db.Roles
-     .FirstOrDefaultAsync(r => r.RoleCode == roleCode, ct);
+     .FirstOrDefaultAsync(r => r.RoleCode == roleCode , ct);
 
-            if (selectedRole == null)
+            if ( selectedRole == null )
                 throw new Exception("Role not found");
 
             user.UserRoleUsers.Add(new UserRole
@@ -175,11 +175,11 @@ public class AuthController : ControllerBase
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken ct)
-        
+
     {
         try
         {
-            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                         ?? User.FindFirst("sub")?.Value;
             if ( string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr , out var userId) )
             {
@@ -212,29 +212,30 @@ public class AuthController : ControllerBase
             var adminPassword = _config["Authentication:Admin:Password"];
 
             // Admin defined in appsettings override bypasses database completely
-            if (!string.IsNullOrEmpty(adminEmail) && 
-                req.Email.Equals(adminEmail, StringComparison.OrdinalIgnoreCase) && 
-                req.Password == adminPassword)
+            if ( !string.IsNullOrEmpty(adminEmail) &&
+                req.Email.Equals(adminEmail , StringComparison.OrdinalIgnoreCase) &&
+                req.Password == adminPassword )
             {
                 var roles = new List<string> { "admin" };
-                var adminToken = _tokenService.CreateAccessToken(Guid.Empty.ToString(), "Super Admin", roles);
+                var adminToken = _tokenService.CreateAccessToken(Guid.Empty.ToString() , "Super Admin" , roles);
                 var adminUserDto = new UserDto(
-                    UserId: Guid.Empty, 
-                    Email: adminEmail, 
-                    FirstName: "Super", 
-                    LastName: "Admin", 
-                    DisplayName: "Super Admin", 
-                    Username: "superadmin", 
-                    AvatarUrl: null, 
+                    UserId: Guid.Empty ,
+                    Email: adminEmail ,
+                    FirstName: "Super" ,
+                    LastName: "Admin" ,
+                    DisplayName: "Super Admin" ,
+                    Username: "superadmin" ,
+                    AvatarUrl: null ,
+                    emailVerified: true ,
                     Roles: roles);
-                    
+
                 var adminAuthResponse = new AuthResponse(
-                    AccessToken: adminToken, 
-                    RefreshToken: "admin-no-refresh", 
-                    ExpiresIn: _jwt.AccessTokenMinutes * 60, 
+                    AccessToken: adminToken ,
+                    RefreshToken: "admin-no-refresh" ,
+                    ExpiresIn: _jwt.AccessTokenMinutes * 60 ,
                     User: adminUserDto);
-                    
-                return Ok(ApiResponse<AuthResponse>.Ok(adminAuthResponse, "Login successful"));
+
+                return Ok(ApiResponse<AuthResponse>.Ok(adminAuthResponse , "Login successful"));
             }
 
             var email = req.Email.ToLowerInvariant();
@@ -295,29 +296,29 @@ public class AuthController : ControllerBase
                 var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
 
                 user = new User
-                    {
-                        Email = email,
-                        FirstName = payload.GivenName ?? "",
-                        LastName = payload.FamilyName ?? "",
-                        DisplayName = payload.Name,
-                        AvatarUrl = payload.Picture,
-                        Username = email.Split('@')[0] + Random.Shared.Next(1000, 9999).ToString(),
-                        EmailVerified = payload.EmailVerified,
-                        LanguagePreference = "vi",
-                        Status = true,
-                        UserProviders = new List<UserProvider>(),
-                        UserRoleUsers = new List<UserRole>()
-                    };
+                {
+                    Email = email ,
+                    FirstName = payload.GivenName ?? "" ,
+                    LastName = payload.FamilyName ?? "" ,
+                    DisplayName = payload.Name ,
+                    AvatarUrl = payload.Picture ,
+                    Username = email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString() ,
+                    EmailVerified = payload.EmailVerified ,
+                    LanguagePreference = "vi" ,
+                    Status = true ,
+                    UserProviders = new List<UserProvider>() ,
+                    UserRoleUsers = new List<UserRole>()
+                };
 
                 var provider = await _db.Providers
-                    .FirstOrDefaultAsync(p => p.ProviderCode == "google", ct);
+                    .FirstOrDefaultAsync(p => p.ProviderCode == "google" , ct);
 
-                if (provider == null)
+                if ( provider == null )
                 {
                     provider = new Provider
                     {
-                        ProviderCode = "google",
-                        ProviderDisplayName = "Google",
+                        ProviderCode = "google" ,
+                        ProviderDisplayName = "Google" ,
                         Enabled = true
                     };
 
@@ -326,16 +327,16 @@ public class AuthController : ControllerBase
 
                 user.UserProviders.Add(new UserProvider
                 {
-                    ProviderId = provider.ProviderId,
-                    ProviderSubject = payload.Subject,
-                    ProviderEmail = email,
+                    ProviderId = provider.ProviderId ,
+                    ProviderSubject = payload.Subject ,
+                    ProviderEmail = email ,
                 });
 
                 if ( studentRole != null )
                 {
                     user.UserRoleUsers.Add(new UserRole
                     {
-                        RoleId = studentRole.RoleId,
+                        RoleId = studentRole.RoleId ,
                     });
                 }
 
@@ -359,16 +360,16 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("github-login")]
-    public async Task<IActionResult> GithubLogin([FromBody] GithubLoginRequest req, CancellationToken ct)
+    public async Task<IActionResult> GithubLogin([FromBody] GithubLoginRequest req , CancellationToken ct)
     {
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "TMOJ-Auth-App");
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", req.AccessToken);
+            client.DefaultRequestHeaders.Add("User-Agent" , "TMOJ-Auth-App");
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer" , req.AccessToken);
 
-            var response = await client.GetAsync("https://api.github.com/user", ct);
-            if (!response.IsSuccessStatusCode)
+            var response = await client.GetAsync("https://api.github.com/user" , ct);
+            if ( !response.IsSuccessStatusCode )
             {
                 return BadRequest(new { Message = "Invalid GitHub Access Token" });
             }
@@ -384,11 +385,11 @@ public class AuthController : ControllerBase
             var name = root.GetProperty("name").GetString() ?? root.GetProperty("login").GetString();
             var avatarUrl = root.GetProperty("avatar_url").GetString();
 
-            if (string.IsNullOrEmpty(email))
+            if ( string.IsNullOrEmpty(email) )
             {
                 // Fallback attempt to get private email
-                var emailResponse = await client.GetAsync("https://api.github.com/user/emails", ct);
-                if (emailResponse.IsSuccessStatusCode)
+                var emailResponse = await client.GetAsync("https://api.github.com/user/emails" , ct);
+                if ( emailResponse.IsSuccessStatusCode )
                 {
                     var emailContent = await emailResponse.Content.ReadAsStringAsync(ct);
                     using var emailDoc = JsonDocument.Parse(emailContent);
@@ -398,7 +399,7 @@ public class AuthController : ControllerBase
                 }
             }
 
-            if (string.IsNullOrEmpty(email))
+            if ( string.IsNullOrEmpty(email) )
             {
                 return BadRequest(new { Message = "Could not retrieve email from GitHub account." });
             }
@@ -408,63 +409,63 @@ public class AuthController : ControllerBase
                 .Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Email == email , ct);
 
-            if (user == null)
+            if ( user == null )
             {
-                var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student", ct);
+                var studentRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == "student" , ct);
                 user = new User
                 {
-                    Email = email,
-                    DisplayName = name,
-                    AvatarUrl = avatarUrl,
-                    Username = email.Split('@')[0] + Random.Shared.Next(1000, 9999).ToString(),
-                    EmailVerified = true, // GitHub verified
-                    LanguagePreference = "vi",
-                    Status = true,
-                    UserProviders = new List<UserProvider>(),
+                    Email = email ,
+                    DisplayName = name ,
+                    AvatarUrl = avatarUrl ,
+                    Username = email.Split('@')[0] + Random.Shared.Next(1000 , 9999).ToString() ,
+                    EmailVerified = true , // GitHub verified
+                    LanguagePreference = "vi" ,
+                    Status = true ,
+                    UserProviders = new List<UserProvider>() ,
                     UserRoleUsers = new List<UserRole>()
                 };
 
-                var provider = await _db.Providers.FirstOrDefaultAsync(p => p.ProviderCode == "github", ct);
-                if (provider == null)
+                var provider = await _db.Providers.FirstOrDefaultAsync(p => p.ProviderCode == "github" , ct);
+                if ( provider == null )
                 {
-                    provider = new Provider { ProviderCode = "github", ProviderDisplayName = "GitHub", Enabled = true };
+                    provider = new Provider { ProviderCode = "github" , ProviderDisplayName = "GitHub" , Enabled = true };
                     _db.Providers.Add(provider);
                 }
 
                 user.UserProviders.Add(new UserProvider
                 {
-                    ProviderId = provider.ProviderId,
-                    ProviderSubject = githubId,
+                    ProviderId = provider.ProviderId ,
+                    ProviderSubject = githubId ,
                     ProviderEmail = email
                 });
 
-                if (studentRole != null) user.UserRoleUsers.Add(new UserRole { RoleId = studentRole.RoleId });
+                if ( studentRole != null ) user.UserRoleUsers.Add(new UserRole { RoleId = studentRole.RoleId });
 
                 _db.Users.Add(user);
                 await _db.SaveChangesAsync(ct);
             }
 
-            var authResponse = await CreateAuthResponseAsync(user, ct);
-            return Ok(ApiResponse<AuthResponse>.Ok(authResponse, "Login with GitHub successful"));
+            var authResponse = await CreateAuthResponseAsync(user , ct);
+            return Ok(ApiResponse<AuthResponse>.Ok(authResponse , "Login with GitHub successful"));
         }
-        catch (Exception)
+        catch ( Exception )
         {
-            return StatusCode(500, new { Message = "Internal Server Error during GitHub Login." });
+            return StatusCode(500 , new { Message = "Internal Server Error during GitHub Login." });
         }
     }
 
     [AllowAnonymous]
     [HttpPost("refresh-token")]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest req, CancellationToken ct)
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest req , CancellationToken ct)
     {
         try
         {
             var hash = _refreshTokenService.HashToken(req.RefreshToken);
             var token = await _db.RefreshTokens
                 .Include(t => t.Session).ThenInclude(s => s.User).ThenInclude(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
-                .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+                .FirstOrDefaultAsync(t => t.TokenHash == hash , ct);
 
-            if (token == null || token.ExpireAt < DateTime.UtcNow || token.RevokedAt != null)
+            if ( token == null || token.ExpireAt < DateTime.UtcNow || token.RevokedAt != null )
             {
                 return Unauthorized(new { Message = "Invalid or expired refresh token." });
             }
@@ -473,28 +474,28 @@ public class AuthController : ControllerBase
             token.RevokedAt = DateTime.UtcNow;
 
             // Create new response
-            var authResponse = await CreateAuthResponseAsync(token.Session.User, ct);
-            return Ok(ApiResponse<AuthResponse>.Ok(authResponse, "Token refreshed successfully"));
+            var authResponse = await CreateAuthResponseAsync(token.Session.User , ct);
+            return Ok(ApiResponse<AuthResponse>.Ok(authResponse , "Token refreshed successfully"));
         }
-        catch (Exception)
+        catch ( Exception )
         {
-            return StatusCode(500, new { Message = "Error refreshing token." });
+            return StatusCode(500 , new { Message = "Error refreshing token." });
         }
     }
 
     [AllowAnonymous]
     [HttpPost("forgot-password")]
-    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req, CancellationToken ct)
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req , CancellationToken ct)
     {
         try
         {
-            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant(), ct);
-            if (user == null) return Ok(new { Message = "If an account exists for this email, a reset link has been sent." });
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == req.Email.ToLowerInvariant() , ct);
+            if ( user == null ) return Ok(new { Message = "If an account exists for this email, a reset link has been sent." });
 
             var verification = new EmailVerification
             {
-                UserId = user.UserId,
-                Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)),
+                UserId = user.UserId ,
+                Token = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)) ,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(30)
             };
 
@@ -502,31 +503,31 @@ public class AuthController : ControllerBase
             await _db.SaveChangesAsync(ct);
 
             // TODO: Send reset email
-            return Ok(new { Message = "Password reset link sent.", Token = verification.Token });
+            return Ok(new { Message = "Password reset link sent." , Token = verification.Token });
         }
-        catch (Exception)
+        catch ( Exception )
         {
-            return StatusCode(500, new { Message = "Error processing forgot password request." });
+            return StatusCode(500 , new { Message = "Error processing forgot password request." });
         }
     }
 
     [AllowAnonymous]
     [HttpPost("reset-password")]
-    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req, CancellationToken ct)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req , CancellationToken ct)
     {
         try
         {
             var email = req.Email.ToLowerInvariant();
             var verification = await _db.EmailVerifications
-                .FirstOrDefaultAsync(v => v.User.Email == email && v.Token == req.Token, ct);
+                .FirstOrDefaultAsync(v => v.User.Email == email && v.Token == req.Token , ct);
 
-            if (verification == null || verification.ExpiresAt < DateTime.UtcNow)
+            if ( verification == null || verification.ExpiresAt < DateTime.UtcNow )
             {
                 return BadRequest(new { Message = "Invalid or expired reset token." });
             }
 
-            var user = await _db.Users.FindAsync(new object[] { verification.UserId }, ct);
-            if (user != null)
+            var user = await _db.Users.FindAsync(new object[] { verification.UserId } , ct);
+            if ( user != null )
             {
                 user.Password = _passwordHasher.Hash(req.NewPassword);
                 _db.EmailVerifications.Remove(verification);
@@ -535,23 +536,23 @@ public class AuthController : ControllerBase
 
             return Ok(new { Message = "Password reset successfully." });
         }
-        catch (Exception)
+        catch ( Exception )
         {
-            return StatusCode(500, new { Message = "Error resetting password." });
+            return StatusCode(500 , new { Message = "Error resetting password." });
         }
     }
 
     [Authorize]
     [HttpPost("change-password")]
-    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req, CancellationToken ct)
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req , CancellationToken ct)
     {
         try
         {
             var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
-            if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
+            if ( string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr , out var userId) ) return Unauthorized();
 
-            var user = await _db.Users.FindAsync(new object[] { userId }, ct);
-            if (user == null || string.IsNullOrEmpty(user.Password) || !_passwordHasher.Verify(req.CurrentPassword, user.Password))
+            var user = await _db.Users.FindAsync(new object[] { userId } , ct);
+            if ( user == null || string.IsNullOrEmpty(user.Password) || !_passwordHasher.Verify(req.CurrentPassword , user.Password) )
             {
                 return BadRequest(new { Message = "Invalid current password." });
             }
@@ -561,19 +562,19 @@ public class AuthController : ControllerBase
 
             return Ok(new { Message = "Password changed successfully." });
         }
-        catch (Exception)
+        catch ( Exception )
         {
-            return StatusCode(500, new { Message = "Error changing password." });
+            return StatusCode(500 , new { Message = "Error changing password." });
         }
     }
 
     // Administrative Actions
     [Authorize(Roles = "admin")]
     [HttpPut("users/{id}/lock")]
-    public async Task<IActionResult> LockAccount(Guid id, CancellationToken ct)
+    public async Task<IActionResult> LockAccount(Guid id , CancellationToken ct)
     {
-        var user = await _db.Users.FindAsync(new object[] { id }, ct);
-        if (user == null) return NotFound();
+        var user = await _db.Users.FindAsync(new object[] { id } , ct);
+        if ( user == null ) return NotFound();
         user.Status = false;
         await _db.SaveChangesAsync(ct);
         return Ok(new { Message = "Account locked." });
@@ -581,10 +582,10 @@ public class AuthController : ControllerBase
 
     [Authorize(Roles = "admin")]
     [HttpPut("users/{id}/unlock")]
-    public async Task<IActionResult> UnlockAccount(Guid id, CancellationToken ct)
+    public async Task<IActionResult> UnlockAccount(Guid id , CancellationToken ct)
     {
-        var user = await _db.Users.FindAsync(new object[] { id }, ct);
-        if (user == null) return NotFound();
+        var user = await _db.Users.FindAsync(new object[] { id } , ct);
+        if ( user == null ) return NotFound();
         user.Status = true;
         await _db.SaveChangesAsync(ct);
         return Ok(new { Message = "Account unlocked." });
@@ -595,9 +596,9 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ListLockedAccounts(CancellationToken ct)
     {
         var users = await _db.Users.Where(u => u.Status == false)
-            .Select(u => new UserProfileResponse(u.UserId, u.Email, u.FirstName, u.LastName, u.DisplayName, u.Username, u.AvatarUrl, u.EmailVerified, u.Status, u.CreatedAt))
+            .Select(u => new UserProfileResponse(u.UserId , u.Email , u.FirstName , u.LastName , u.DisplayName , u.Username , u.AvatarUrl , u.EmailVerified , u.Status , u.CreatedAt))
             .ToListAsync(ct);
-        return Ok(ApiResponse<List<UserProfileResponse>>.Ok(users, "list of locked accounts"));
+        return Ok(ApiResponse<List<UserProfileResponse>>.Ok(users , "list of locked accounts"));
     }
 
     [Authorize(Roles = "admin")]
@@ -605,22 +606,22 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ListUnlockedAccounts(CancellationToken ct)
     {
         var users = await _db.Users.Where(u => u.Status == true)
-            .Select(u => new UserProfileResponse(u.UserId, u.Email, u.FirstName, u.LastName, u.DisplayName, u.Username, u.AvatarUrl, u.EmailVerified, u.Status, u.CreatedAt))
+            .Select(u => new UserProfileResponse(u.UserId , u.Email , u.FirstName , u.LastName , u.DisplayName , u.Username , u.AvatarUrl , u.EmailVerified , u.Status , u.CreatedAt))
             .ToListAsync(ct);
-        return Ok(ApiResponse<List<UserProfileResponse>>.Ok(users, "List of active accounts"));
+        return Ok(ApiResponse<List<UserProfileResponse>>.Ok(users , "List of active accounts"));
     }
 
     [Authorize(Roles = "admin")]
     [HttpPost("users/{id}/assign-role")]
-    public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest req, CancellationToken ct)
+    public async Task<IActionResult> AssignRole(Guid id , [FromBody] AssignRoleRequest req , CancellationToken ct)
     {
-        var user = await _db.Users.Include(u => u.UserRoleUsers).FirstOrDefaultAsync(u => u.UserId == id, ct);
-        if (user == null) return NotFound();
+        var user = await _db.Users.Include(u => u.UserRoleUsers).FirstOrDefaultAsync(u => u.UserId == id , ct);
+        if ( user == null ) return NotFound();
 
-        var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == req.RoleCode.ToLowerInvariant(), ct);
-        if (role == null) return BadRequest(new { Message = "Role not found." });
+        var role = await _db.Roles.FirstOrDefaultAsync(r => r.RoleCode == req.RoleCode.ToLowerInvariant() , ct);
+        if ( role == null ) return BadRequest(new { Message = "Role not found." });
 
-        if (!user.UserRoleUsers.Any(ur => ur.RoleId == role.RoleId))
+        if ( !user.UserRoleUsers.Any(ur => ur.RoleId == role.RoleId) )
         {
             user.UserRoleUsers.Add(new UserRole { RoleId = role.RoleId });
             await _db.SaveChangesAsync(ct);
@@ -631,14 +632,14 @@ public class AuthController : ControllerBase
 
     [Authorize(Roles = "admin")]
     [HttpDelete("users/{id}/roles/{roleCode}")]
-    public async Task<IActionResult> RemoveRole(Guid id, string roleCode, CancellationToken ct)
+    public async Task<IActionResult> RemoveRole(Guid id , string roleCode , CancellationToken ct)
     {
         var user = await _db.Users.Include(u => u.UserRoleUsers).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.UserId == id, ct);
-        if (user == null) return NotFound();
+            .FirstOrDefaultAsync(u => u.UserId == id , ct);
+        if ( user == null ) return NotFound();
 
         var userRole = user.UserRoleUsers.FirstOrDefault(ur => ur.Role.RoleCode == roleCode.ToLowerInvariant());
-        if (userRole != null)
+        if ( userRole != null )
         {
             _db.UserRoles.Remove(userRole);
             await _db.SaveChangesAsync(ct);
@@ -684,8 +685,8 @@ public class AuthController : ControllerBase
             LastName: user.LastName ,
             DisplayName: user.DisplayName ,
             Username: user.Username ,
-            AvatarUrl: user.AvatarUrl,
-            emailVerified: user.EmailVerified,
+            AvatarUrl: user.AvatarUrl ,
+            emailVerified: user.EmailVerified ,
             Roles: roles
         );
 
